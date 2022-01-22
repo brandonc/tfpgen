@@ -1,0 +1,42 @@
+package {{ .PackageName }}
+import (
+	"context"
+	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/types"
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+)
+
+type {{ .ResourceTypeStuct }} struct{}
+
+type {{ .ResourceStruct }} struct {
+	provider provider
+}
+
+type {{ .ResourceStruct }}Data struct {
+	{{- range $attribute := .Attributes }}
+	{{$attribute.DataName}} types.{{$attribute.DataType}}
+	ConfigurableAttribute types.String ` + "`" + "tfsdk:\"{{ .}}\"" + "`" + `
+}
+
+func (t {{ .ResourceTypeStuct }}) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
+	return tfsdk.Schema{
+		MarkdownDescription: "{{ .Description }}",
+
+		Attributes: map[string]tfsdk.Attribute{
+			{{- range $attribute := .Attributes }}
+			"{{$attribute.TfName}}": {
+				MarkdownDescription: "{{$attribute.Description}}",
+				Optional: true,
+				Type: types.{{$attribute.FrameworkType}},
+			},
+		},
+	}, nil
+}
+
+func (t {{ .ResourceTypeStuct }}) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
+	provider, diags := in.(*provider))
+
+	return exampleResource{
+		provider: provider,
+	}, diags
+}
