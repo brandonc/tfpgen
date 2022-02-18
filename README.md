@@ -1,6 +1,6 @@
 # tfpgen
 
-An experimental OpenAPI -> Terraform Provider generator that does not yet function. The goal is to allow developers to incrementally generate and maintain their own simple [Terraform Provider](https://www.terraform.io/registry/providers) using an [OpenAPI 3 specification](https://en.wikipedia.org/wiki/OpenAPI_Specification).
+An experimental OpenAPI → Terraform Provider generator that does not yet function. The goal is to allow developers to incrementally generate and maintain their own simple [Terraform Provider](https://www.terraform.io/registry/providers) using an [OpenAPI 3 specification](https://en.wikipedia.org/wiki/OpenAPI_Specification).
 
 - [x] Examine an OpenAPI spec, identify RESTful resource groups `tfpgen examine spec.yaml`
 - [x] Generate a config file for each discovered resource/data source `tfpgen init spec.yaml`
