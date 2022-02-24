@@ -6,7 +6,7 @@ import (
 
 	"github.com/brandonc/tfpgen/internal/config"
 	"github.com/brandonc/tfpgen/internal/generator"
-	"github.com/brandonc/tfpgen/internal/specutils"
+	"github.com/brandonc/tfpgen/internal/restutils"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/cli"
 )
@@ -53,13 +53,25 @@ func (c GenerateCommand) Run(args []string) int {
 	c.Config = cfg
 	c.Spec = doc
 
-	resources := specutils.ProbeForRESTResources(c.Spec)
+	bindings, err := c.Config.AsBindings()
+	if err != nil {
+		fmt.Println(err)
+		return 3
+	}
+
+	resources, err := restutils.BindResources(doc, bindings)
+	if err != nil {
+		fmt.Println(err)
+		return 3
+	}
 
 	err = os.Mkdir("generated/", 0755)
 	if err != nil && !os.IsExist(err) {
 		fmt.Printf("could not create directory generated/: %v\n", err)
 		return 3
 	}
+
+	generator.NewProviderGenerator(c.Config)
 
 	for key := range c.Config.Output {
 		resource, ok := resources[key]

@@ -10,11 +10,11 @@ import (
 
 	"github.com/brandonc/tfpgen/internal/config"
 	"github.com/brandonc/tfpgen/internal/naming"
-	"github.com/brandonc/tfpgen/internal/specutils"
+	"github.com/brandonc/tfpgen/internal/restutils"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-type TemplateData struct {
+type TemplateResourceData struct {
 	PackageName                  string
 	AcceptanceTestFunctionPrefix string
 	TerraformTypeName            string
@@ -23,16 +23,16 @@ type TemplateData struct {
 	ResourceTypeStuct            string
 	ResourceStruct               string
 	Description                  string
-	Attributes                   []*TemplateAttribute
+	Attributes                   []*TemplateResourceAttribute
 }
 
 type ResourceGenerator struct {
-	spec *specutils.SpecResource
+	spec *restutils.SpecResource
 	tf   *config.TerraformResource
 	oapi *openapi3.T
 }
 
-type TemplateAttribute struct {
+type TemplateResourceAttribute struct {
 	NestingLevel  int
 	TfName        string
 	Description   string
@@ -40,7 +40,7 @@ type TemplateAttribute struct {
 	DataName      string
 	DataType      string
 	Required      bool
-	Attributes    []*TemplateAttribute
+	Attributes    []*TemplateResourceAttribute
 }
 
 func toTerraformFrameworkType(tfType string) string {
@@ -116,21 +116,21 @@ func (g *ResourceGenerator) Generate(destinationPkg, destinationSchema, destinat
 	return err
 }
 
-func (g *ResourceGenerator) createTemplateData() *TemplateData {
-	return &TemplateData{
+func (g *ResourceGenerator) createTemplateData() *TemplateResourceData {
+	return &TemplateResourceData{
 		PackageName:                  "provider",
 		AcceptanceTestFunctionPrefix: "AccTest_",
 		Attributes:                   g.templateAttributes(),
-		TerraformTypeName:            g.tf.TfTypeName,
-		FactoryFunctionName:          fmt.Sprintf("%sType_%s", g.tf.TfType, g.tf.TfTypeName),
+		TerraformTypeName:            g.tf.TfTypeNameSuffix,
+		FactoryFunctionName:          fmt.Sprintf("%sType_%s", g.tf.TfType, g.tf.TfTypeNameSuffix),
 		ConfigKey:                    g.spec.Name,
 		ResourceTypeStuct:            fmt.Sprintf("Resource%sType", g.spec.Name),
 		ResourceStruct:               fmt.Sprintf("Resource%s", g.spec.Name),
 	}
 }
 
-func schemaToAttribute(nestingLevel int, name string, required bool, schema *openapi3.Schema) *TemplateAttribute {
-	templateAttribute := TemplateAttribute{
+func schemaToAttribute(nestingLevel int, name string, required bool, schema *openapi3.Schema) *TemplateResourceAttribute {
+	templateAttribute := TemplateResourceAttribute{
 		TfName:       naming.ToHCLName(name),
 		Description:  "TODO",
 		Required:     required,
@@ -142,7 +142,7 @@ func schemaToAttribute(nestingLevel int, name string, required bool, schema *ope
 	// TODO: Does "additionalProperties" suggest a map?
 
 	if schema.Type == "object" {
-		nested := make([]*TemplateAttribute, 0, len(schema.Properties))
+		nested := make([]*TemplateResourceAttribute, 0, len(schema.Properties))
 		for propName, propRef := range schema.Properties {
 			prop := propRef.Value
 			// TODO: Required object attributes
@@ -166,9 +166,9 @@ func schemaToAttribute(nestingLevel int, name string, required bool, schema *ope
 	return &templateAttribute
 }
 
-func (g *ResourceGenerator) templateAttributes() []*TemplateAttribute {
+func (g *ResourceGenerator) templateAttributes() []*TemplateResourceAttribute {
 	specAttributes := g.spec.CompositeAttributes(g.tf.MediaType)
-	result := make([]*TemplateAttribute, 0, len(specAttributes))
+	result := make([]*TemplateResourceAttribute, 0, len(specAttributes))
 
 	for _, att := range specAttributes {
 		result = append(result, schemaToAttribute(0, att.Name, att.ReadOnly, att.Schema))
@@ -177,7 +177,7 @@ func (g *ResourceGenerator) templateAttributes() []*TemplateAttribute {
 	return result
 }
 
-func NewResourceGenerator(rest *specutils.SpecResource, oapiSchema *openapi3.T, tf *config.TerraformResource) (*ResourceGenerator, error) {
+func NewResourceGenerator(rest *restutils.SpecResource, oapiSchema *openapi3.T, tf *config.TerraformResource) (*ResourceGenerator, error) {
 	return &ResourceGenerator{
 		rest,
 		tf,

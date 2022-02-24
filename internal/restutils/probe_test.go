@@ -1,4 +1,4 @@
-package specutils
+package restutils
 
 import (
 	"strings"
@@ -7,14 +7,14 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-func Test_ProbeForRESTResources(t *testing.T) {
+func Test_ProbeForResources(t *testing.T) {
 	doc, err := openapi3.NewLoader().LoadFromFile("../../test-fixtures/restlike.yaml")
 
 	if err != nil {
 		t.Fatalf("invalid fixture: %s\n", err)
 	}
 
-	resources := ProbeForRESTResources(doc)
+	resources := ProbeForResources(doc)
 
 	t.Run("finds two resource", func(t *testing.T) {
 		expected := 2
@@ -25,7 +25,7 @@ func Test_ProbeForRESTResources(t *testing.T) {
 		}
 	})
 
-	t.Run("Boards name", func(t *testing.T) {
+	t.Run("Boards SpecResource", func(t *testing.T) {
 		expected := "Boards" // Derived from path /v3/boards
 		imageBoard, ok := resources[expected]
 
@@ -64,14 +64,24 @@ func Test_ProbeForRESTResources(t *testing.T) {
 				t.Errorf("expected %v but got %v", expected, actual)
 			}
 		})
-	})
 
-	t.Run("SpecResource", func(t *testing.T) {
-		imageBoard, ok := resources["Boards"]
+		t.Run("CRUD Operations", func(t *testing.T) {
+			if imageBoard.RESTCreate == nil {
+				t.Error("expected \"Boards\" create action")
+			}
 
-		if !ok {
-			t.Errorf("expencted \"Boards\" resource")
-		}
+			if imageBoard.RESTShow == nil {
+				t.Error("expected \"Boards\" show action")
+			}
+
+			if imageBoard.RESTUpdate == nil {
+				t.Error("expected \"Boards\" update action")
+			}
+
+			if imageBoard.RESTDelete == nil {
+				t.Error("expected \"Boards\" delete action")
+			}
+		})
 
 		t.Run("CompositeAttributes", func(t *testing.T) {
 			attributes := imageBoard.CompositeAttributes("application/json")

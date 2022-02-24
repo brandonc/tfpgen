@@ -1,7 +1,8 @@
-package specutils
+package restutils
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"unicode"
 
@@ -9,24 +10,24 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-type Action string
+type ActionName string
 
 type Emitter string
 
 const (
-	Create Action = "create"
-	Show   Action = "show"
-	List   Action = "list"
-	Update Action = "update"
-	Delete Action = "delete"
+	Create ActionName = "create"
+	Show   ActionName = "show"
+	Index  ActionName = "index"
+	Update ActionName = "update"
+	Delete ActionName = "delete"
 )
 
 const JsonEmitter Emitter = "json"
 
-var successfulResponseCodes map[Action][]int = map[Action][]int{
+var successfulResponseCodes map[ActionName][]int = map[ActionName][]int{
 	Create: {201, 200},
 	Show:   {200, 203},
-	List:   {200, 203},
+	Index:  {200, 203},
 	Update: {200},
 	Delete: {200, 204},
 }
@@ -35,21 +36,22 @@ var wellKnownContentTypes map[string]Emitter = map[string]Emitter{
 	"application/json": JsonEmitter,
 }
 
-type Operation struct {
-	Action        Action
+type RESTAction struct {
+	Name          ActionName
+	Method        string
 	OAPIOperation *openapi3.Operation
 	Path          string
 	OAPIPathItem  *openapi3.PathItem
 }
 
 type SpecResource struct {
-	Name            string
-	Paths           []string
-	ListOperation   *Operation
-	ShowOperation   *Operation
-	CreateOperation *Operation
-	UpdateOperation *Operation
-	DeleteOperation *Operation
+	Name       string
+	Paths      []string
+	RESTIndex  *RESTAction
+	RESTShow   *RESTAction
+	RESTCreate *RESTAction
+	RESTUpdate *RESTAction
+	RESTDelete *RESTAction
 }
 
 type SpecAttribute struct {
@@ -62,16 +64,16 @@ type SpecAttribute struct {
 func (s *SpecResource) CompositeAttributes(mediaType string) []*SpecAttribute {
 	attributesByName := make(CompositeAttributes)
 
-	if s.ShowOperation != nil {
-		attributesByName.ExtractResponseAttributes(Show, mediaType, s.ShowOperation.OAPIOperation)
+	if s.RESTShow != nil {
+		attributesByName.ExtractResponseAttributes(Show, mediaType, s.RESTShow.OAPIOperation)
 	}
 
-	if s.CreateOperation != nil {
-		attributesByName.ExtractRequestAttributes(Create, mediaType, s.CreateOperation.OAPIOperation)
+	if s.RESTCreate != nil {
+		attributesByName.ExtractRequestAttributes(Create, mediaType, s.RESTCreate.OAPIOperation)
 	}
 
-	if s.UpdateOperation != nil {
-		attributesByName.ExtractRequestAttributes(Update, mediaType, s.UpdateOperation.OAPIOperation)
+	if s.RESTUpdate != nil {
+		attributesByName.ExtractRequestAttributes(Update, mediaType, s.RESTUpdate.OAPIOperation)
 	}
 
 	attributes := make([]*SpecAttribute, 0, len(attributesByName))
@@ -82,7 +84,7 @@ func (s *SpecResource) CompositeAttributes(mediaType string) []*SpecAttribute {
 	return attributes
 }
 
-func ProbeForRESTResources(doc *openapi3.T) map[string]*SpecResource {
+func ProbeForResources(doc *openapi3.T) map[string]*SpecResource {
 	result := make(map[string]*SpecResource)
 
 	paths := make([]string, 0, len(doc.Paths))
@@ -110,25 +112,25 @@ func ProbeForRESTResources(doc *openapi3.T) map[string]*SpecResource {
 
 		// Each path can have multiple actions assigned to it, a composite of which could be used as a RESTful set.
 
-		showOK, showOperation := maybeBuildOperation(true, resource, resource.ShowOperation, Show, path, pathItem, []*openapi3.Operation{pathItem.Get})
+		showOK, showOperation := probeBuildAction(true, resource, resource.RESTShow, Show, path, pathItem, []string{http.MethodGet})
 		if showOK {
-			resource.ShowOperation = showOperation
+			resource.RESTShow = showOperation
 		}
-		deleteOK, deleteOperation := maybeBuildOperation(true, resource, resource.DeleteOperation, Delete, path, pathItem, []*openapi3.Operation{pathItem.Delete, pathItem.Post, pathItem.Put, pathItem.Patch})
+		deleteOK, deleteOperation := probeBuildAction(true, resource, resource.RESTDelete, Delete, path, pathItem, []string{http.MethodDelete})
 		if deleteOK {
-			resource.DeleteOperation = deleteOperation
+			resource.RESTDelete = deleteOperation
 		}
-		updateOK, updateOperation := maybeBuildOperation(true, resource, resource.UpdateOperation, Update, path, pathItem, []*openapi3.Operation{pathItem.Put, pathItem.Patch, pathItem.Post})
+		updateOK, updateOperation := probeBuildAction(true, resource, resource.RESTUpdate, Update, path, pathItem, []string{http.MethodPut, http.MethodPatch, http.MethodPost})
 		if updateOK {
-			resource.UpdateOperation = updateOperation
+			resource.RESTUpdate = updateOperation
 		}
-		listOK, listOperation := maybeBuildOperation(false, resource, resource.ListOperation, List, path, pathItem, []*openapi3.Operation{pathItem.Get})
+		listOK, indexOperation := probeBuildAction(false, resource, resource.RESTIndex, Index, path, pathItem, []string{http.MethodGet})
 		if listOK {
-			resource.ListOperation = listOperation
+			resource.RESTIndex = indexOperation
 		}
-		createOK, createOperation := maybeBuildOperation(false, resource, resource.CreateOperation, Create, path, pathItem, []*openapi3.Operation{pathItem.Post})
+		createOK, createOperation := probeBuildAction(false, resource, resource.RESTCreate, Create, path, pathItem, []string{http.MethodPost})
 		if createOK {
-			resource.CreateOperation = createOperation
+			resource.RESTCreate = createOperation
 		}
 
 		if showOK || deleteOK || updateOK || listOK || createOK {
@@ -142,29 +144,29 @@ func ProbeForRESTResources(doc *openapi3.T) map[string]*SpecResource {
 func (s *SpecResource) DetermineContentMediaType() *string {
 	var mediaType *string = nil
 
-	if s.ShowOperation != nil {
-		mediaType, _ = probeMediaType(s.ShowOperation, successfulResponseCodes[Show])
+	if s.RESTShow != nil {
+		mediaType, _ = probeMediaType(s.RESTShow, successfulResponseCodes[Show])
 	}
 
-	if s.UpdateOperation != nil {
-		updateMediaType, err := probeMediaType(s.UpdateOperation, successfulResponseCodes[Update])
+	if s.RESTUpdate != nil {
+		updateMediaType, err := probeMediaType(s.RESTUpdate, successfulResponseCodes[Update])
 		mediaType = reconcileMediaTypes(s.Name, Update, err, mediaType, updateMediaType)
 	}
 
-	if s.CreateOperation != nil {
-		createMediaType, err := probeMediaType(s.CreateOperation, successfulResponseCodes[Create])
+	if s.RESTCreate != nil {
+		createMediaType, err := probeMediaType(s.RESTCreate, successfulResponseCodes[Create])
 		mediaType = reconcileMediaTypes(s.Name, Update, err, mediaType, createMediaType)
 	}
 
-	if s.ListOperation != nil {
-		listMediaType, err := probeMediaType(s.ListOperation, successfulResponseCodes[List])
-		mediaType = reconcileMediaTypes(s.Name, List, err, mediaType, listMediaType)
+	if s.RESTIndex != nil {
+		listMediaType, err := probeMediaType(s.RESTIndex, successfulResponseCodes[Index])
+		mediaType = reconcileMediaTypes(s.Name, Index, err, mediaType, listMediaType)
 	}
 
 	return mediaType
 }
 
-func reconcileMediaTypes(resourceKey string, action Action, probeError error, previousMediaType *string, newMediaType *string) *string {
+func reconcileMediaTypes(resourceKey string, action ActionName, probeError error, previousMediaType *string, newMediaType *string) *string {
 	if probeError != nil && previousMediaType != nil && newMediaType != nil && previousMediaType != newMediaType {
 		fmt.Printf("warning: %s %s operation response content media type does not agree with other operation(s), which are %s\n", resourceKey, action, *previousMediaType)
 	} else if previousMediaType == nil && newMediaType != nil {
@@ -173,7 +175,7 @@ func reconcileMediaTypes(resourceKey string, action Action, probeError error, pr
 	return previousMediaType
 }
 
-func probeMediaType(op *Operation, successCodes []int) (*string, error) {
+func probeMediaType(op *RESTAction, successCodes []int) (*string, error) {
 	for _, code := range successCodes {
 		if response := op.OAPIOperation.Responses.Get(code); response != nil {
 			keys := make([]string, 0, len(response.Value.Content))
@@ -195,21 +197,25 @@ func probeMediaType(op *Operation, successCodes []int) (*string, error) {
 	return nil, fmt.Errorf("no content body types were defined on the specified operation")
 }
 
-func maybeBuildOperation(singleton bool, resource *SpecResource, resourceOp *Operation, action Action, path string, pathItem *openapi3.PathItem, oapiOps []*openapi3.Operation) (bool, *Operation) {
-	for _, oapiOp := range oapiOps {
-		if oapiOp != nil {
-			if (!singleton && !strings.HasSuffix(strings.ToLower(path), "id}")) || (singleton && strings.HasSuffix(strings.ToLower(path), "id}")) {
-				if resourceOp != nil {
-					fmt.Printf("warning: %s already has a %s operation defined at %s\n", resource.Name, action, resourceOp.Path)
-					return false, nil
-				}
+func probeBuildAction(singleton bool, resource *SpecResource, action *RESTAction, actionName ActionName, path string, pathItem *openapi3.PathItem, probeMethods []string) (bool, *RESTAction) {
+	for _, method := range probeMethods {
+		oapiOp := pathItem.GetOperation(method)
+		if oapiOp == nil {
+			continue
+		}
 
-				return true, &Operation{
-					Action:        action,
-					OAPIPathItem:  pathItem,
-					OAPIOperation: oapiOp,
-					Path:          path,
-				}
+		if (!singleton && !strings.HasSuffix(strings.ToLower(path), "id}")) || (singleton && strings.HasSuffix(strings.ToLower(path), "id}")) {
+			if action != nil {
+				fmt.Printf("warning: %s already has a %s operation defined at %s\n", resource.Name, actionName, action.Path)
+				return false, nil
+			}
+
+			return true, &RESTAction{
+				Name:          actionName,
+				Method:        method,
+				OAPIPathItem:  pathItem,
+				OAPIOperation: oapiOp,
+				Path:          path,
 			}
 		}
 	}
@@ -217,18 +223,18 @@ func maybeBuildOperation(singleton bool, resource *SpecResource, resourceOp *Ope
 }
 
 func (r *SpecResource) IsCRUD() bool {
-	return r.ShowOperation != nil &&
-		r.UpdateOperation != nil &&
-		r.DeleteOperation != nil &&
-		r.CreateOperation != nil
+	return r.RESTShow != nil &&
+		r.RESTUpdate != nil &&
+		r.RESTDelete != nil &&
+		r.RESTCreate != nil
 }
 
 func (r *SpecResource) CanReadIdentity() bool {
-	return r.ShowOperation != nil
+	return r.RESTShow != nil
 }
 
 func (r *SpecResource) CanReadCollection() bool {
-	return r.ListOperation != nil
+	return r.RESTIndex != nil
 }
 
 func makeKeyNameFromPath(path string) string {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/brandonc/tfpgen/internal/specutils"
+	"github.com/brandonc/tfpgen/internal/restutils"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/cli"
 )
@@ -23,7 +23,7 @@ func (c ExamineCommand) Run(args []string) int {
 		return 2
 	}
 
-	resources := specutils.ProbeForRESTResources(doc)
+	resources := restutils.ProbeForResources(doc)
 
 	fmt.Printf("%-32v %-64s %-16s %-16s\n", "Config Name", "Paths", "Limit", "Collection Data Source?")
 	fmt.Printf("------------------------------------------------------------------------------------------------------------------------------------------\n")

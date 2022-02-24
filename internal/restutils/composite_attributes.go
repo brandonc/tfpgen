@@ -1,4 +1,4 @@
-package specutils
+package restutils
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 
 type CompositeAttributes map[string]*SpecAttribute
 
-func (c CompositeAttributes) ExtractRequestAttributes(action Action, mediaType string, op *openapi3.Operation) {
+func (c CompositeAttributes) ExtractRequestAttributes(action ActionName, mediaType string, op *openapi3.Operation) {
 	if op.RequestBody != nil {
 		body := op.RequestBody.Value.Content.Get(mediaType)
 		if body != nil {
@@ -17,7 +17,7 @@ func (c CompositeAttributes) ExtractRequestAttributes(action Action, mediaType s
 	}
 }
 
-func (c CompositeAttributes) ExtractResponseAttributes(action Action, mediaType string, op *openapi3.Operation) {
+func (c CompositeAttributes) ExtractResponseAttributes(action ActionName, mediaType string, op *openapi3.Operation) {
 	for _, code := range successfulResponseCodes[action] {
 		if response := op.Responses.Get(code); response != nil {
 			body := response.Value.Content.Get(mediaType)
@@ -29,9 +29,9 @@ func (c CompositeAttributes) ExtractResponseAttributes(action Action, mediaType 
 	}
 }
 
-func (c CompositeAttributes) extractFromSchemas(action Action, schemas openapi3.Schemas) {
+func (c CompositeAttributes) extractFromSchemas(action ActionName, schemas openapi3.Schemas) {
 	for name, prop_ref := range schemas {
-		if action == List || action == Show {
+		if action == Index || action == Show {
 			c.updateForRead(name, prop_ref.Value)
 		} else if action == Create || action == Update {
 			c.updateForWrite(name, prop_ref.Value)

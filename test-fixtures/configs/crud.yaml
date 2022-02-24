@@ -1,0 +1,24 @@
+api:
+  scheme: bearer_token
+  default_endpoint: https://api.example.com/
+provider:
+  name: example
+specfile: ../restlike.yaml
+output:
+  Boards:
+    tf_type_name_suffix: board
+    tf_type: resource
+    media_type: application/json
+    binding:
+      create:
+        method: POST
+        path: /v3/boards
+      read:
+        method: GET
+        path: /v3/boards/{boardId}
+      update:
+        method: POST
+        path: /v3/boards/{boardId}
+      delete:
+        method: DELETE
+        path: /v3/boards/{boardId}
