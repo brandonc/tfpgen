@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/brandonc/tfpgen/internal/restutils"
+	"github.com/brandonc/tfpgen/pkg/restutils"
 	"gopkg.in/yaml.v2"
 )
 

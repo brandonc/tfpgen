@@ -6,7 +6,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/brandonc/tfpgen/internal/naming"
+	"github.com/brandonc/tfpgen/pkg/naming"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 

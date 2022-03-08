@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/brandonc/tfpgen/internal/restutils"
+	"github.com/brandonc/tfpgen/pkg/restutils"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/mitchellh/cli"
 )
