@@ -3,7 +3,7 @@ package config
 import (
 	"fmt"
 
-	"github.com/brandonc/tfpgen/internal/naming"
+	"github.com/brandonc/tfpgen/pkg/naming"
 	"github.com/brandonc/tfpgen/pkg/restutils"
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -74,7 +74,10 @@ func defaultConfig(path string) Config {
 			DefaultEndpoint: "https://api.example.com/",
 		},
 		Provider: ProviderConfig{
-			Name: "example",
+			Name:             "yourname/example",
+			Registry:         "registry.terraform.io",
+			ModuleRepository: "github.com/yourname/terraform-provider-example",
+			PackageName:      "provider",
 		},
 		Filename: path,
 		Output:   make(map[string]*TerraformResource),

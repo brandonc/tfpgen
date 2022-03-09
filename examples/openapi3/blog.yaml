@@ -1,43 +1,35 @@
 openapi: 3.0.0
-
 info:
   title: Blog Posts API
-  description: >
+  description: |
     This is an example API for blog posts using OpenApi Specification.
-
     ---
-
-    Using this API you can retrieve blog posts, comments on each blog
-    post and delete or update the posts.
-  termsOfService: "http://swagger.io/terms/"
+    Using this API you can retrieve blog posts, comments on each blog post and delete or update the posts.
+  termsOfService: 'http://swagger.io/terms/'
   contact:
     name: Amir Lavasani
-    url: "https://amir.lavasani.dev"
+    url: 'https://amir.lavasani.dev'
     email: amirm.lavasani@gmail.com
   license:
-    name: "Apache 2.0"
-    url: "http://www.apache.org/licenses/LICENSE-2.0.html"
+    name: Apache 2.0
+    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
   version: 1.0.0
-
-
 servers:
   - url: '{protocol}://{environment}.example.com/v1'
     variables:
       environment:
-        default: api    # Production server
+        default: api
         enum:
-          - api         # Production server
-          - api.dev     # Development server
-          - api.staging # Staging server
+          - api
+          - api.dev
+          - api.staging
       protocol:
         default: https
         enum:
           - http
           - https
-
 paths:
   /posts:
-
     get:
       tags:
         - Posts
@@ -50,7 +42,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Posts'
-
     post:
       tags:
         - Posts
@@ -63,21 +54,19 @@ paths:
       responses:
         '201':
           description: The request has succeeded and a new resource has been created as a result.
-
-  /posts/{id}:
-
+  '/posts/{id}':
     get:
       tags:
         - Posts
       summary: Return a post
       description: Return a post with postId equals to id.
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: The postId requested by user.
-        schema:
-          type : string
+        - name: id
+          in: path
+          required: true
+          description: The postId requested by user.
+          schema:
+            type: string
       responses:
         '200':
           description: A blog posts in JSON format
@@ -91,12 +80,12 @@ paths:
       summary: Update a post
       description: A  complete replacement of a post with id.
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: The postId requested by user.
-        schema:
-          type : string
+        - name: id
+          in: path
+          required: true
+          description: The postId requested by user.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -106,19 +95,18 @@ paths:
       responses:
         '200':
           description: Updated the post completely.
-
     patch:
       tags:
         - Posts
       summary: Update a post
       description: Update the post with id partially.
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: The postId requested by user.
-        schema:
-          type : string
+        - name: id
+          in: path
+          required: true
+          description: The postId requested by user.
+          schema:
+            type: string
       requestBody:
         required: true
         content:
@@ -128,29 +116,27 @@ paths:
       responses:
         '200':
           description: Updated the post partially.
-
     delete:
       tags:
         - Posts
       summary: Deletes a post
       description: Deletes the post with id.
       parameters:
-      - name: id
-        in: path
-        required: true
-        description: The postId requested by user.
-        schema:
-          type : string
+        - name: id
+          in: path
+          required: true
+          description: The postId requested by user.
+          schema:
+            type: string
       responses:
         '204':
           description: The resource was deleted successfully.
-
   /comments:
     get:
       tags:
         - Comments
       summary: Return comments
-      description: Return comments on a post with postId={id}.
+      description: 'Return comments on a post with postId={id}.'
       parameters:
         - in: query
           name: postId
@@ -167,119 +153,68 @@ paths:
 components:
   schemas:
     Posts:
-      description: "An array of post objects."
+      description: An array of post objects.
       type: array
       items:
         $ref: '#/components/schemas/Post'
-      example: [
-            {
-              "userId": 1,
-              "id": 1,
-              "title": "First post",
-              "body": "This is the first post body."
-            },
-            {
-              "userId": 1,
-              "id": 2,
-              "title": "Second post",
-              "body": "The second post content."
-            },
-            {
-              "userId": 1,
-              "id": 3,
-              "title": "Another post",
-              "body": "Other post content"
-            }
-      ]
     Post:
       type: object
       properties:
         id:
           type: string
-          description: "The post id."
+          description: The post id.
         userId:
           type: string
-          description: "The post userId."
+          description: The post userId.
         title:
           type: string
-          description: "The title of the post"
+          description: The title of the post
         body:
           type: string
-          description: "The body content of the post"
+          description: The body content of the post
+        byline:
+          type: string
       required:
         - id
         - userId
         - title
         - body
-      example:
-          userId: 1
-          id: 1
-          title: "The First Post"
-          body: "we are building a blog post API using OpenAPI Specification."
+        - byline
     PatchPost:
       type: object
       properties:
         id:
           type: string
-          description: "The post id."
+          description: The post id.
         userId:
           type: string
-          description: "The post userId."
+          description: The post userId.
         title:
           type: string
-          description: "The title of the post"
+          description: The title of the post
         body:
           type: string
-          description: "The body content of the post"
+          description: The body content of the post
     Comments:
-      description: "The array of comment objects"
+      description: The array of comment objects
       type: array
       items:
         $ref: '#/components/schemas/Comment'
-      example: [
-        {
-          "postId": 1,
-          "id": 1,
-          "name": "id labore ex et quam laborum",
-          "email": "Eliseo@gardner.biz",
-          "body": "laudantium enim quasi est quidem magnam voluptate"
-        },
-        {
-          "postId": 1,
-          "id": 2,
-          "name": "quo vero reiciendis velit similique earum",
-          "email": "Jayne_Kuhic@sydney.com",
-          "body": "est natus enim nihil est dolore omnis voluptatem"
-        },
-        {
-          "postId": 1,
-          "id": 3,
-          "name": "odio adipisci rerum aut animi",
-          "email": "Nikita@garfield.biz",
-          "body": "quia molestiae reprehenderit quasi aspernatur"
-        }
-      ]
     Comment:
       type: object
       properties:
         id:
           type: string
-          description: "The comment id."
+          description: The comment id.
         postId:
           type: string
-          description: "The comment postId."
+          description: The comment postId.
         name:
           type: string
-          description: "The name of the comment."
+          description: The name of the comment.
         email:
           type: string
-          description: "The email of the user who posted the comment."
+          description: The email of the user who posted the comment.
         body:
           type: string
-          description: "The comment body."
-      example:
-        id: 1
-        postId: 1
-        name: "The first comment"
-        email: "example@example.com"
-        body: "This is the first comment!"
+          description: The comment body.

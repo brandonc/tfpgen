@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/brandonc/tfpgen/pkg/restutils"
 	"gopkg.in/yaml.v2"
@@ -58,6 +59,13 @@ type ProviderConfig struct {
 	// Conventionally, the resource names themselves are prefixed with the provider name so be sure
 	// to add that below.
 	Name string `yaml:"name"`
+
+	// Registry is the hostname of the module registry, defaults to registry.terraform.io
+	Registry string `yaml:"registry"`
+
+	ModuleRepository string `yaml:"repository"`
+
+	PackageName string `yaml:"package_name"`
 }
 
 // Config is the top level configuration schema
@@ -83,6 +91,22 @@ func ensureBinding(key string, action restutils.ActionName, ba *ActionBinding) e
 		return fmt.Errorf("resource %s, action %s is missing a binding", key, action)
 	}
 	return nil
+}
+
+func (p *ProviderConfig) ProviderOrganization() string {
+	parts := strings.Split(p.Name, "/")
+	if len(parts) != 2 {
+		panic("invalid provider name")
+	}
+	return parts[0]
+}
+
+func (p *ProviderConfig) ProviderName() string {
+	parts := strings.Split(p.Name, "/")
+	if len(parts) != 2 {
+		panic("invalid provider name")
+	}
+	return parts[1]
 }
 
 func (c *Config) AsBindings() ([]restutils.RESTBinding, error) {
