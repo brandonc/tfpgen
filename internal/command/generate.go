@@ -3,6 +3,7 @@ package command
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
 	"github.com/brandonc/tfpgen/internal/config"
 	"github.com/brandonc/tfpgen/internal/generator"
@@ -63,6 +64,14 @@ func (c GenerateCommand) Run(args []string) int {
 	if err != nil {
 		fmt.Println(err.Error())
 		return 3
+	}
+
+	cmd := exec.Command("go", "mod", "tidy")
+	cmd.Dir = basePath
+	err = cmd.Run()
+
+	if err != nil {
+		fmt.Printf("could not run `go mod tidy` in output directory. Check module dependencies and try running it again: %s\n", err.Error())
 	}
 
 	return 0
