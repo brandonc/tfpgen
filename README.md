@@ -7,7 +7,7 @@ An experimental OpenAPI → Terraform Provider generator that does not yet funct
 - [ ] Using a combination of the spec and config, generate the provider `tfpgen generate`
   - [ ] Generate [Terraform plugin framework](https://github.com/hashicorp/terraform-plugin-framework) code for each resource/datasource
   - [ ] Generate http client code and caller code for each resource/datasource
-  - [ ] Generate Terraform framework provider code to describe resource schema
+  - [x] Generate Terraform framework provider code to describe resource schema
   - [ ] Generate acceptance tests
 
 ## Other Solutions

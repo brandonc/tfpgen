@@ -172,14 +172,11 @@ components:
         body:
           type: string
           description: The body content of the post
-        byline:
-          type: string
       required:
         - id
         - userId
         - title
         - body
-        - byline
     PatchPost:
       type: object
       properties:

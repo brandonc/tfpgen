@@ -12,7 +12,7 @@ import (
 type ExamineCommand struct{}
 
 func (c ExamineCommand) Help() string {
-	return "Usage: examine [spec.yaml]\nExamine will reveal what RESTful entities tfpgen can detect for use in a generated terraform provider."
+	return "Usage: examine [path]\nExamine an OpenAPI spec, which will reveal an the RESTful entities tfpgen can detect before initializing a project."
 }
 
 func (c ExamineCommand) Run(args []string) int {

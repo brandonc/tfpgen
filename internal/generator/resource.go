@@ -7,11 +7,20 @@ import (
 	"strings"
 
 	"github.com/brandonc/tfpgen/internal/config"
-	"github.com/brandonc/tfpgen/pkg/naming"
 	"github.com/brandonc/tfpgen/pkg/restutils"
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// ResourceGenerator is the type that generates code for each resource
+type ResourceGenerator struct {
+	Doc    *openapi3.T
+	Config *config.Config
+
+	currentResource  *restutils.SpecResource
+	currentTerraform *config.TerraformResource
+}
+
+// TemplateResourceData describes a single resource to be templated
 type TemplateResourceData struct {
 	PackageName                  string
 	AcceptanceTestFunctionPrefix string
@@ -24,14 +33,7 @@ type TemplateResourceData struct {
 	Attributes                   []*TemplateResourceAttribute
 }
 
-type ResourceGenerator struct {
-	Doc    *openapi3.T
-	Config *config.Config
-
-	currentResource  *restutils.SpecResource
-	currentTerraform *config.TerraformResource
-}
-
+// TemplateResourceAttribute describes a single resource attribute and can contain other nested attributes
 type TemplateResourceAttribute struct {
 	NestingLevel  int
 	TfName        string
@@ -277,64 +279,13 @@ func (g *ResourceGenerator) CreateTemplateData() interface{} {
 	return &TemplateResourceData{
 		PackageName:                  "provider",
 		AcceptanceTestFunctionPrefix: "AccTest_",
-		Attributes:                   g.templateAttributes(),
+		Attributes:                   templateAttributes(g.currentResource, g.currentTerraform),
 		TerraformTypeName:            g.currentTerraform.TfTypeNameSuffix,
 		FactoryFunctionName:          fmt.Sprintf("%sType_%s", g.currentTerraform.TfType, g.currentTerraform.TfTypeNameSuffix),
 		ConfigKey:                    g.currentResource.Name,
 		ResourceTypeStruct:           fmt.Sprintf("%sResourceType", g.currentTerraform.TfTypeNameSuffix),
 		ResourceStruct:               fmt.Sprintf("Resource%s", g.currentResource.Name),
 	}
-}
-
-func schemaToAttribute(nestingLevel int, name string, required bool, schema *openapi3.Schema) *TemplateResourceAttribute {
-	templateAttribute := TemplateResourceAttribute{
-		TfName:       naming.ToHCLName(name),
-		Description:  "TODO",
-		Required:     required,
-		Optional:     !required,
-		DataName:     naming.ToTitleName(name),
-		NestingLevel: nestingLevel,
-	}
-
-	// TODO: Does "additionalProperties" suggest a map?
-
-	if schema.Type == "object" {
-		nested := make([]*TemplateResourceAttribute, 0, len(schema.Properties))
-		for propName, propRef := range schema.Properties {
-			prop := propRef.Value
-			// TODO: Required object attributes
-			nested = append(nested, schemaToAttribute(nestingLevel+1, propName, false, prop))
-		}
-		templateAttribute.Attributes = nested
-		templateAttribute.SchemaType = "types.ObjectType"
-		templateAttribute.DataType = "types.Object"
-	} else if schema.Type == "array" {
-		prop := schema.Items.Value
-		if prop.Type != "object" {
-			// This can be represented as a list
-			templateAttribute.SchemaType = "types.ListType"
-			templateAttribute.DataType = "types.List"
-		} else {
-			// TODO: ListNestedAttributes
-			fmt.Printf("warning: ListNestedAttributes not yet supported for property %s\n", name)
-		}
-	} else {
-		templateAttribute.SchemaType = toTerraformFrameworkSchemaType(toTerraformType(schema.Type))
-		templateAttribute.DataType = toTerraformFrameworkDataType(toTerraformType(schema.Type))
-	}
-
-	return &templateAttribute
-}
-
-func (g *ResourceGenerator) templateAttributes() []*TemplateResourceAttribute {
-	specAttributes := g.currentResource.CompositeAttributes(g.currentTerraform.MediaType)
-	result := make([]*TemplateResourceAttribute, 0, len(specAttributes))
-
-	for _, att := range specAttributes {
-		result = append(result, schemaToAttribute(0, att.Name, att.ReadOnly, att.Schema))
-	}
-
-	return result
 }
 
 func NewResourceGenerator(doc *openapi3.T, config *config.Config) *ResourceGenerator {

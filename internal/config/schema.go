@@ -21,11 +21,13 @@ const (
 	TokenApiScheme ApiScheme = "bearer_token"
 )
 
+// ActionBinding is the config section that describes an openAPI path/verb binding
 type ActionBinding struct {
 	Path   string `yaml:"path"`
 	Method string `yaml:"method"`
 }
 
+// BindingInfo is the config section which binds each CRUD action to a path & verb
 type BindingInfo struct {
 	CreateAction *ActionBinding `yaml:"create,omitempty"`
 	ReadAction   *ActionBinding `yaml:"read,omitempty"`
@@ -52,9 +54,10 @@ type ApiConfig struct {
 // ProviderConfig is the container for provider configuration.
 type ProviderConfig struct {
 	// Name must be a lowercase name that identifies your provider. For example, the official
-	// Active Directory provider name is "ad". The official Amazon Web Services provider name is "aws"
-	// Additionally, the name you choose must also appear in the repository name of the provider.
-	// For example, hashicorp/terraform-provider-ad is the name of the Active Directory provider.
+	// Active Directory provider name is "hashicorp/ad". The official Amazon Web Services provider
+	// name is "hashicorp/aws" Additionally, the name you choose must also appear in the repository
+	// name of the provider. For example, github.com/hashicorp/terraform-provider-ad is the
+	// repository of the Active Directory provider.
 	//
 	// Conventionally, the resource names themselves are prefixed with the provider name so be sure
 	// to add that below.
@@ -63,8 +66,10 @@ type ProviderConfig struct {
 	// Registry is the hostname of the module registry, defaults to registry.terraform.io
 	Registry string `yaml:"registry"`
 
+	// ModuleRepository is the repository url for the go module, example: github.com/brandonc/terraform-provider-example
 	ModuleRepository string `yaml:"repository"`
 
+	// PackageName is the name of the go package to use for the provider, default is "provider"
 	PackageName string `yaml:"package_name"`
 }
 
