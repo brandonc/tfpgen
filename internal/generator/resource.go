@@ -35,16 +35,33 @@ type TemplateResourceData struct {
 
 // TemplateResourceAttribute describes a single resource attribute and can contain other nested attributes
 type TemplateResourceAttribute struct {
-	NestingLevel  int
-	TfName        string
-	Description   string
-	FrameworkType string
-	DataName      string
-	SchemaType    string
-	DataType      string
-	Required      bool
-	Optional      bool
-	Attributes    []*TemplateResourceAttribute
+	// A measure of attribute nesting
+	NestingLevel int
+
+	// The Terraform name to use for the attribute. See https://www.terraform.io/language/syntax/configuration#identifiers
+	TfName string
+
+	// The OpenAPI description of the property
+	Description string
+
+	// The Capital Case field name for the attribute. This casing is important because the
+	// data struct that is annotated by the framework has to be publicly exposed in go code
+	DataName string
+
+	// The Terraform Plugin Framework schema type, for example, "types.StringType"
+	FrameworkSchemaType string
+
+	// The Terraform Plugin Framework attribute data type, for example, "types.String"
+	FrameworkDataType string
+
+	// Whether or not the attribute is required
+	Required bool
+
+	// If it's not required or computed, the attribute should be optional
+	Optional bool
+
+	// Nested attributes that belong to this attribute
+	Attributes []*TemplateResourceAttribute
 }
 
 var _ Generator = (*ResourceGenerator)(nil)
@@ -108,13 +125,13 @@ type {{ .ResourceStruct }} struct {
 
 type {{ .ResourceStruct }}Data struct {
 	{{- range $attribute := .Attributes }}
-	{{ .DataName }} {{ .DataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" +
+	{{ .DataName }} {{ .FrameworkDataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" +
 		`	{{- end}}
 }
 {{ define "SchemaAttr" }}
 	"{{.TfName}}": {
 		MarkdownDescription: "{{ .Description }}",
-		Type:                {{ .SchemaType }},
+		Type:                {{ .FrameworkSchemaType }},
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
 	},

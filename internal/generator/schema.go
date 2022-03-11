@@ -38,26 +38,30 @@ func schemaToAttribute(nestingLevel int, name string, required bool, schema *ope
 			nested = append(nested, schemaToAttribute(nestingLevel+1, propName, sliceIncludes(prop.Required, propName), prop))
 		}
 		templateAttribute.Attributes = nested
-		templateAttribute.SchemaType = "types.ObjectType"
-		templateAttribute.DataType = "types.Object"
+		templateAttribute.FrameworkSchemaType = "types.ObjectType"
+		templateAttribute.FrameworkDataType = "types.Object"
 	} else if schema.Type == "array" {
 		prop := schema.Items.Value
 		if prop.Type != "object" {
 			// This can be represented as a list
-			templateAttribute.SchemaType = "types.ListType"
-			templateAttribute.DataType = "types.List"
+			templateAttribute.FrameworkSchemaType = "types.ListType"
+			templateAttribute.FrameworkDataType = "types.List"
 		} else {
 			// TODO: ListNestedAttributes
 			fmt.Printf("warning: ListNestedAttributes not yet supported for property %s\n", name)
 		}
 	} else {
-		templateAttribute.SchemaType = toTerraformFrameworkSchemaType(toTerraformType(schema.Type))
-		templateAttribute.DataType = toTerraformFrameworkDataType(toTerraformType(schema.Type))
+		templateAttribute.FrameworkSchemaType = toTerraformFrameworkSchemaType(toTerraformType(schema.Type))
+		templateAttribute.FrameworkDataType = toTerraformFrameworkDataType(toTerraformType(schema.Type))
 	}
 
 	return &templateAttribute
 }
 
+// Extract request and response parameters into Terraform schema:
+// 1. Required request parameters become required Terraform attributes.
+// 2. Other request parameters become optional Terraform attributes.
+// 3. Response attributes that do not appear in the request become Computed attributes.
 func templateAttributes(sresource *restutils.SpecResource, tresource *config.TerraformResource) []*TemplateResourceAttribute {
 	specAttributes := sresource.CompositeAttributes(tresource.MediaType)
 	result := make([]*TemplateResourceAttribute, 0, len(specAttributes))
