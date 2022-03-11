@@ -51,6 +51,25 @@ func ToTitleName(s string) string {
 	return sb.String()
 }
 
+// ValidHCLIdentifier checks to ensure whether an identifier is a valid HCL identifier. That is,
+// they contain letters, digits, underscores (_), and dashes (-). The first character must not be a digit.
+func ValidHCLIdentifier(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+
+	for index, c := range s {
+		if unicode.IsDigit(c) && index == 0 {
+			return false
+		}
+
+		if !unicode.IsDigit(c) && !unicode.IsLetter(c) && c != '_' && c != '-' {
+			return false
+		}
+	}
+	return true
+}
+
 // ToHCLName converts TitleCase or camelCase to snake_case
 func ToHCLName(s string) string {
 	sb := strings.Builder{}

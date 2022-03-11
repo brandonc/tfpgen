@@ -4,6 +4,24 @@ import (
 	"testing"
 )
 
+func Test_ValidHCLIdentifier(t *testing.T) {
+	cases := map[string]bool{
+		"#/components/v": false,
+		"1password":      false,
+		"password1":      true,
+		"more-to-print":  true,
+		"":               false,
+		"MORE_TO_PRINT":  true,
+	}
+
+	for example, expected := range cases {
+		actual := ValidHCLIdentifier(example)
+		if actual != expected {
+			t.Errorf("expected %v but got %v", expected, actual)
+		}
+	}
+}
+
 func Test_FindPrefix(t *testing.T) {
 	cases := map[string]string{
 		"#/components/v": FindPrefix([]string{"#/components/vapid", "#/components/vacant", "#/components/verily"}),
