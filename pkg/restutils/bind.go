@@ -20,7 +20,7 @@ type RESTBinding struct {
 	IndexAction  *ActionBinding
 }
 
-func (p *RESTProbe) BindResources(doc *openapi3.T, bindings []RESTBinding) (map[string]*RESTResource, error) {
+func (p *RESTProbe) BindResources(bindings []RESTBinding) (map[string]*RESTResource, error) {
 	result := make(map[string]*RESTResource)
 
 	for _, binding := range bindings {
@@ -28,31 +28,31 @@ func (p *RESTProbe) BindResources(doc *openapi3.T, bindings []RESTBinding) (map[
 		var err error
 
 		if binding.CreateAction != nil {
-			createOp, err = bindOperation(doc, binding.CreateAction, Create)
+			createOp, err = bindOperation(p.Document, binding.CreateAction, Create)
 			if err != nil {
 				return nil, err
 			}
 		}
 		if binding.ReadAction != nil {
-			showOp, err = bindOperation(doc, binding.ReadAction, Show)
+			showOp, err = bindOperation(p.Document, binding.ReadAction, Show)
 			if err != nil {
 				return nil, err
 			}
 		}
 		if binding.UpdateAction != nil {
-			updateOp, err = bindOperation(doc, binding.UpdateAction, Update)
+			updateOp, err = bindOperation(p.Document, binding.UpdateAction, Update)
 			if err != nil {
 				return nil, err
 			}
 		}
 		if binding.DeleteAction != nil {
-			deleteOp, err = bindOperation(doc, binding.DeleteAction, Delete)
+			deleteOp, err = bindOperation(p.Document, binding.DeleteAction, Delete)
 			if err != nil {
 				return nil, err
 			}
 		}
 		if binding.IndexAction != nil {
-			listOp, err = bindOperation(doc, binding.IndexAction, Index)
+			listOp, err = bindOperation(p.Document, binding.IndexAction, Index)
 			if err != nil {
 				return nil, err
 			}

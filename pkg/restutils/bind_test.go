@@ -39,7 +39,7 @@ func Test_BindResources(t *testing.T) {
 			},
 		}
 
-		resources, err := probe.BindResources(doc, bindings)
+		resources, err := probe.BindResources(bindings)
 
 		if err != nil {
 			t.Errorf("invalid binding: %s", err)
