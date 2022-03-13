@@ -20,8 +20,8 @@ type RESTBinding struct {
 	IndexAction  *ActionBinding
 }
 
-func BindResources(doc *openapi3.T, bindings []RESTBinding) (map[string]*SpecResource, error) {
-	result := make(map[string]*SpecResource)
+func (p *RESTProbe) BindResources(doc *openapi3.T, bindings []RESTBinding) (map[string]*RESTResource, error) {
+	result := make(map[string]*RESTResource)
 
 	for _, binding := range bindings {
 		var createOp, showOp, updateOp, deleteOp, listOp *RESTAction = nil, nil, nil, nil, nil
@@ -58,7 +58,8 @@ func BindResources(doc *openapi3.T, bindings []RESTBinding) (map[string]*SpecRes
 			}
 		}
 
-		result[binding.Name] = &SpecResource{
+		result[binding.Name] = &RESTResource{
+			probe:      p,
 			Name:       binding.Name,
 			RESTCreate: createOp,
 			RESTShow:   showOp,
@@ -84,10 +85,8 @@ func bindOperation(doc *openapi3.T, binding *ActionBinding, action ActionName) (
 	}
 
 	return &RESTAction{
-		Name:          action,
-		Method:        binding.Method,
-		OAPIOperation: operation,
-		Path:          binding.Path,
-		OAPIPathItem:  pathItem,
+		Name:   action,
+		Method: binding.Method,
+		Path:   binding.Path,
 	}, nil
 }

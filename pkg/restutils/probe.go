@@ -1,6 +1,7 @@
 package restutils
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -36,56 +37,91 @@ var wellKnownContentTypes map[string]Emitter = map[string]Emitter{
 	"application/json": JsonEmitter,
 }
 
-type RESTAction struct {
-	Name          ActionName
-	Method        string
-	OAPIOperation *openapi3.Operation
-	Path          string
-	OAPIPathItem  *openapi3.PathItem
+type RESTProbe struct {
+	Document *openapi3.T
 }
 
-type SpecResource struct {
+type RESTAction struct {
+	Name   ActionName
+	Method string
+	Path   string
+}
+
+type RESTResource struct {
 	Name       string
-	Paths      []string
 	RESTIndex  *RESTAction
 	RESTShow   *RESTAction
 	RESTCreate *RESTAction
 	RESTUpdate *RESTAction
 	RESTDelete *RESTAction
+
+	probe *RESTProbe
 }
 
-type SpecAttribute struct {
-	Name     string
-	ReadOnly bool
-	Required bool
-	Schema   *openapi3.Schema
+type Attribute struct {
+	Name        string
+	Type        string
+	ElemType    string
+	Format      string
+	ReadOnly    bool
+	Required    bool
+	Description string
+	Attributes  []*Attribute
 }
 
-func (s *SpecResource) CompositeAttributes(mediaType string) []*SpecAttribute {
-	attributesByName := make(CompositeAttributes)
-
-	if s.RESTShow != nil {
-		attributesByName.ExtractResponseAttributes(Show, mediaType, s.RESTShow.OAPIOperation)
-	}
-
-	if s.RESTCreate != nil {
-		attributesByName.ExtractRequestAttributes(Create, mediaType, s.RESTCreate.OAPIOperation)
-	}
-
-	if s.RESTUpdate != nil {
-		attributesByName.ExtractRequestAttributes(Update, mediaType, s.RESTUpdate.OAPIOperation)
-	}
-
-	attributes := make([]*SpecAttribute, 0, len(attributesByName))
-	for _, attribute := range attributesByName {
-		attributes = append(attributes, attribute)
-	}
-
-	return attributes
+func (a *Attribute) String() string {
+	return fmt.Sprintf("%s (%s)", a.Name, a.Type)
 }
 
-func ProbeForResources(doc *openapi3.T) map[string]*SpecResource {
-	result := make(map[string]*SpecResource)
+func NewProbe(doc *openapi3.T) RESTProbe {
+	return RESTProbe{
+		Document: doc,
+	}
+}
+
+func (probe *RESTProbe) getOperation(path, method string) *openapi3.Operation {
+	pathItem := probe.Document.Paths.Find(path)
+	if pathItem != nil {
+		return pathItem.GetOperation(method)
+	}
+	return nil
+}
+
+func (s *RESTResource) Paths() []string {
+	set := make(map[string]interface{})
+	actions := []*RESTAction{
+		s.RESTCreate, s.RESTDelete, s.RESTIndex, s.RESTShow, s.RESTUpdate,
+	}
+
+	length := 0
+	for _, action := range actions {
+		set[action.Path] = nil
+		length++
+	}
+
+	result := make([]string, 0, length)
+	for path, _ := range set {
+		result = append(result, path)
+	}
+	return result
+}
+
+func (s *RESTResource) Operation(action *RESTAction) *openapi3.Operation {
+	if action == nil {
+		return nil
+	}
+	return s.probe.getOperation(action.Path, action.Method)
+}
+
+func (s *RESTResource) ProbeForAttributes(mediaType string) []*Attribute {
+	return compositeAttributes(s, mediaType)
+}
+
+// ProbeForResources examines an openapi3 document, pairing related paths together that can
+// potentially represent a CRUD resource.
+func (probe *RESTProbe) ProbeForResources() map[string]*RESTResource {
+	doc := probe.Document
+	result := make(map[string]*RESTResource)
 
 	paths := make([]string, 0, len(doc.Paths))
 	for k := range doc.Paths {
@@ -102,16 +138,15 @@ func ProbeForResources(doc *openapi3.T) map[string]*SpecResource {
 
 		resource, ok := result[keyName]
 		if !ok {
-			resource = &SpecResource{
+			resource = &RESTResource{
 				Name:  keyName,
-				Paths: make([]string, 0, 1),
+				probe: probe,
 			}
 
 			result[keyName] = resource
 		}
 
 		// Each path can have multiple actions assigned to it, a composite of which could be used as a RESTful set.
-
 		showOK, showOperation := probeBuildAction(true, resource, resource.RESTShow, Show, path, pathItem, []string{http.MethodGet})
 		if showOK {
 			resource.RESTShow = showOperation
@@ -132,52 +167,28 @@ func ProbeForResources(doc *openapi3.T) map[string]*SpecResource {
 		if createOK {
 			resource.RESTCreate = createOperation
 		}
-
-		if showOK || deleteOK || updateOK || listOK || createOK {
-			resource.Paths = append(resource.Paths, path)
-		}
 	}
 
 	return result
 }
 
-func (s *SpecResource) DetermineContentMediaType() *string {
+func (s *RESTResource) DetermineContentMediaType() *string {
 	var mediaType *string = nil
 
 	if s.RESTShow != nil {
-		mediaType, _ = probeMediaType(s.RESTShow, successfulResponseCodes[Show])
-	}
-
-	if s.RESTUpdate != nil {
-		updateMediaType, err := probeMediaType(s.RESTUpdate, successfulResponseCodes[Update])
-		mediaType = reconcileMediaTypes(s.Name, Update, err, mediaType, updateMediaType)
-	}
-
-	if s.RESTCreate != nil {
-		createMediaType, err := probeMediaType(s.RESTCreate, successfulResponseCodes[Create])
-		mediaType = reconcileMediaTypes(s.Name, Update, err, mediaType, createMediaType)
-	}
-
-	if s.RESTIndex != nil {
-		listMediaType, err := probeMediaType(s.RESTIndex, successfulResponseCodes[Index])
-		mediaType = reconcileMediaTypes(s.Name, Index, err, mediaType, listMediaType)
+		mediaType, _ = s.probeMediaType(s.RESTShow, successfulResponseCodes[Show])
 	}
 
 	return mediaType
 }
 
-func reconcileMediaTypes(resourceKey string, action ActionName, probeError error, previousMediaType *string, newMediaType *string) *string {
-	if probeError != nil && previousMediaType != nil && newMediaType != nil && previousMediaType != newMediaType {
-		fmt.Printf("warning: %s %s operation response content media type does not agree with other operation(s), which are %s\n", resourceKey, action, *previousMediaType)
-	} else if previousMediaType == nil && newMediaType != nil {
-		return newMediaType
-	}
-	return previousMediaType
-}
-
-func probeMediaType(op *RESTAction, successCodes []int) (*string, error) {
+func (s *RESTResource) probeMediaType(op *RESTAction, successCodes []int) (*string, error) {
 	for _, code := range successCodes {
-		if response := op.OAPIOperation.Responses.Get(code); response != nil {
+		op := s.probe.getOperation(op.Path, op.Method)
+		if op == nil {
+			return nil, errors.New("the specified path/method was not found")
+		}
+		if response := op.Responses.Get(code); response != nil {
 			keys := make([]string, 0, len(response.Value.Content))
 			for k := range response.Value.Content {
 				keys = append(keys, k)
@@ -194,46 +205,47 @@ func probeMediaType(op *RESTAction, successCodes []int) (*string, error) {
 		}
 	}
 
-	return nil, fmt.Errorf("no content body types were defined on the specified operation")
+	return nil, errors.New("no content body types were defined on the specified operation")
 }
 
-func probeBuildAction(singleton bool, resource *SpecResource, action *RESTAction, actionName ActionName, path string, pathItem *openapi3.PathItem, probeMethods []string) (bool, *RESTAction) {
+func probeBuildAction(singleton bool, resource *RESTResource, action *RESTAction, actionName ActionName, path string, pathItem *openapi3.PathItem, probeMethods []string) (bool, *RESTAction) {
 	for _, method := range probeMethods {
 		oapiOp := pathItem.GetOperation(method)
 		if oapiOp == nil {
 			continue
 		}
 
-		if (!singleton && !strings.HasSuffix(strings.ToLower(path), "id}")) || (singleton && strings.HasSuffix(strings.ToLower(path), "id}")) {
+		if (!singleton && !strings.HasSuffix(strings.ToLower(path), "}")) || (singleton && strings.HasSuffix(strings.ToLower(path), "}")) {
 			if action != nil {
 				fmt.Printf("warning: %s already has a %s operation defined at %s\n", resource.Name, actionName, action.Path)
 				return false, nil
 			}
 
 			return true, &RESTAction{
-				Name:          actionName,
-				Method:        method,
-				OAPIPathItem:  pathItem,
-				OAPIOperation: oapiOp,
-				Path:          path,
+				Name:   actionName,
+				Method: method,
+				Path:   path,
 			}
 		}
 	}
 	return false, nil
 }
 
-func (r *SpecResource) IsCRUD() bool {
+func (r *RESTResource) IsCRUD() bool {
 	return r.RESTShow != nil &&
-		r.RESTUpdate != nil &&
 		r.RESTDelete != nil &&
 		r.RESTCreate != nil
 }
 
-func (r *SpecResource) CanReadIdentity() bool {
+func (r *RESTResource) CanUpdate() bool {
+	return r.RESTUpdate != nil
+}
+
+func (r *RESTResource) CanReadIdentity() bool {
 	return r.RESTShow != nil
 }
 
-func (r *SpecResource) CanReadCollection() bool {
+func (r *RESTResource) CanReadCollection() bool {
 	return r.RESTIndex != nil
 }
 

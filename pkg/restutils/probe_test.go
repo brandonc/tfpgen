@@ -14,7 +14,8 @@ func Test_ProbeForResources(t *testing.T) {
 		t.Fatalf("invalid fixture: %s\n", err)
 	}
 
-	resources := ProbeForResources(doc)
+	probe := NewProbe(doc)
+	resources := probe.ProbeForResources()
 
 	t.Run("finds two resource", func(t *testing.T) {
 		expected := 2
@@ -83,16 +84,10 @@ func Test_ProbeForResources(t *testing.T) {
 			}
 		})
 
-		t.Run("CompositeAttributes", func(t *testing.T) {
-			attributes := imageBoard.CompositeAttributes("application/json")
+		t.Run("ProbeForAttributes", func(t *testing.T) {
+			attributes := imageBoard.ProbeForAttributes("application/json")
 
-			expectedLen := 10 // name and description
-			actualLen := len(attributes)
-
-			if expectedLen != actualLen {
-				t.Errorf("expected %v but got %v", expectedLen, actualLen)
-			}
-
+			// board_id
 			// comment_count
 			// date_last_updated
 			// permissions
@@ -103,67 +98,11 @@ func Test_ProbeForResources(t *testing.T) {
 			// asset_count
 			// description
 			// name
-			for _, att := range attributes {
-				if att.Name == "comment_count" {
-					if !att.ReadOnly || att.Schema.Type != "integer" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "date_last_updated" {
-					if !att.ReadOnly || att.Schema.Type != "string" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "permissions" {
-					if !att.ReadOnly || att.Schema.Type != "object" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "assets" {
-					if !att.ReadOnly || att.Schema.Type != "array" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "links" {
-					if !att.ReadOnly || att.Schema.Type != "object" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "date_created" {
-					if !att.ReadOnly || att.Schema.Type != "string" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "id" {
-					if !att.ReadOnly || att.Schema.Type != "string" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "asset_count" {
-					if !att.ReadOnly || att.Schema.Type != "integer" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "name" {
-					if att.ReadOnly || att.Schema.Type != "string" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
-				if att.Name == "description" {
-					if att.ReadOnly || att.Schema.Type != "string" {
-						t.Errorf("attribute %s had unexpected properties", att.Name)
-					}
-					continue
-				}
+			expectedLen := 11
+			actualLen := len(attributes)
+
+			if expectedLen != actualLen {
+				t.Errorf("expected %v but got %v", expectedLen, actualLen)
 			}
 		})
 	})
