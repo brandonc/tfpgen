@@ -28,7 +28,7 @@ func compositeAttributes(s *RESTResource, mediaType string) []*Attribute {
 	attMap := make(map[string]*Attribute)
 
 	if s.RESTShow != nil {
-		op := s.Operation(s.RESTShow)
+		op := s.GetOperation(s.RESTShow)
 		if op != nil {
 			log.Print("[DEBUG] Extracting parameter attributes from show action")
 			extractParameterAttributes(attMap, Show, op)
@@ -40,24 +40,24 @@ func compositeAttributes(s *RESTResource, mediaType string) []*Attribute {
 	}
 
 	if s.RESTCreate != nil {
-		op := s.Operation(s.RESTCreate)
+		op := s.GetOperation(s.RESTCreate)
 		if op != nil {
 			log.Print("[DEBUG] Extracting parameter attributes from create action")
-			extractParameterAttributes(attMap, Create, s.Operation(s.RESTCreate))
+			extractParameterAttributes(attMap, Create, s.GetOperation(s.RESTCreate))
 			log.Print("[DEBUG] Extracting request body attributes from create action")
-			extractRequestAttributes(attMap, Create, mediaType, s.Operation(s.RESTCreate))
+			extractRequestAttributes(attMap, Create, mediaType, s.GetOperation(s.RESTCreate))
 		} else {
 			log.Print("[WARN] No create operation found")
 		}
 	}
 
 	if s.RESTUpdate != nil {
-		op := s.Operation(s.RESTCreate)
+		op := s.GetOperation(s.RESTCreate)
 		if op != nil {
 			log.Print("[DEBUG] Extracting parameter attributes from update action")
-			extractParameterAttributes(attMap, Update, s.Operation(s.RESTUpdate))
+			extractParameterAttributes(attMap, Update, s.GetOperation(s.RESTUpdate))
 			log.Print("[DEBUG] Extracting request body attributes from update action")
-			extractRequestAttributes(attMap, Update, mediaType, s.Operation(s.RESTUpdate))
+			extractRequestAttributes(attMap, Update, mediaType, s.GetOperation(s.RESTUpdate))
 		} else {
 			log.Print("[WARN] No update operation found")
 		}

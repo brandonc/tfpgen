@@ -284,7 +284,7 @@ func Test_compositeAttributes(t *testing.T) {
 
 						if innerAttr == "RegionLimit" {
 							if len(foundLimit.Attributes) != len(expectedRegionLimitAttributes) {
-								t.Errorf("Expected %d Limit attributes but found %d: %v", len(expectedRegionLimitAttributes), len(foundLimit.Attributes), foundLimit.Attributes)
+								t.Errorf("Expected %d RegionLimit attributes but found %d: %v", len(expectedRegionLimitAttributes), len(foundLimit.Attributes), foundLimit.Attributes)
 							}
 
 							for innerRegionAttr, c := range expectedRegionLimitAttributes {
@@ -315,6 +315,95 @@ func Test_compositeAttributes(t *testing.T) {
 
 								if foundRegion.Description != c.Description {
 									t.Errorf("Attribute %s Description expected %s, actual %s", innerAttr, c.Description, foundRegion.Description)
+								}
+
+								expectedNetworkAttributes := map[string]AttributeValues{
+									"CIDR": {
+										Type: "string",
+									},
+									"DNS": {
+										Type: "object",
+									},
+									"Device": {
+										Type: "string",
+									},
+									"DynamicPorts": {
+										Type: "array",
+									},
+									"IP": {
+										Type: "string",
+									},
+									"MBits": {
+										Type: "integer",
+									},
+									"Mode": {
+										Type: "string",
+									},
+									"ReservedPorts": {
+										Type: "array",
+									},
+								}
+
+								if innerRegionAttr == "Networks" {
+									if len(foundRegion.Attributes) != len(expectedNetworkAttributes) {
+										t.Errorf("Expected %d Networks attributes but found %d: %v", len(expectedNetworkAttributes), len(foundRegion.Attributes), foundRegion.Attributes)
+									}
+
+									for innerNetworkAttr, _ := range expectedNetworkAttributes {
+										var foundNetwork *Attribute = nil
+										for _, search := range foundRegion.Attributes {
+											if search.Name == innerNetworkAttr {
+												foundNetwork = search
+												break
+											}
+										}
+
+										if foundNetwork == nil {
+											t.Errorf("Expected an attribute named %s in Networks attribute", innerNetworkAttr)
+											return
+										}
+
+										expectedDNSAttributes := map[string]AttributeValues{
+											"Options": {
+												Type: "array",
+											},
+											"Searches": {
+												Type: "array",
+											},
+											"Servers": {
+												Type: "array",
+											},
+										}
+
+										if innerNetworkAttr == "DNS" {
+											if len(foundNetwork.Attributes) != len(expectedDNSAttributes) {
+												t.Errorf("Expected %d DNS attributes but found %d: %v", len(expectedDNSAttributes), len(foundNetwork.Attributes), foundNetwork.Attributes)
+											}
+
+											for innerDNSAttr, c := range expectedDNSAttributes {
+												var foundDNS *Attribute = nil
+												for _, search := range foundNetwork.Attributes {
+													if search.Name == innerDNSAttr {
+														foundDNS = search
+														break
+													}
+												}
+
+												if foundDNS == nil {
+													t.Errorf("Expected an attribute named %s in DNS attribute", innerDNSAttr)
+													return
+												}
+
+												if foundDNS.Type != c.Type {
+													t.Errorf("Attribute %s Type expected %s, actual %s", innerDNSAttr, c.Type, foundDNS.Type)
+												}
+
+												if foundDNS.ElemType != "string" {
+													t.Errorf("Attribute %s Type expected %s, actual %s", innerDNSAttr, "string", foundDNS.ElemType)
+												}
+											}
+										}
+									}
 								}
 							}
 						}

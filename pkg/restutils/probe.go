@@ -106,7 +106,7 @@ func (s *RESTResource) Paths() []string {
 	return result
 }
 
-func (s *RESTResource) Operation(action *RESTAction) *openapi3.Operation {
+func (s *RESTResource) GetOperation(action *RESTAction) *openapi3.Operation {
 	if action == nil {
 		return nil
 	}
