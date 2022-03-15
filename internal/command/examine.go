@@ -23,7 +23,8 @@ func (c ExamineCommand) Run(args []string) int {
 		return 2
 	}
 
-	resources := restutils.ProbeForResources(doc)
+	probe := restutils.NewProbe(doc)
+	resources := probe.ProbeForResources()
 
 	fmt.Printf("%-32v %-64s %-16s %-16s\n", "Config Name", "Paths", "Limit", "Collection Data Source?")
 	fmt.Printf("------------------------------------------------------------------------------------------------------------------------------------------\n")
@@ -38,7 +39,7 @@ func (c ExamineCommand) Run(args []string) int {
 		fmt.Printf(
 			"%-32s %-64v %-16s %-16v\n",
 			name,
-			strings.Join(resource.Paths, ", "),
+			strings.Join(resource.Paths(), ", "),
 			extent,
 			resource.CanReadCollection() && !resource.CanReadIdentity(),
 		)

@@ -16,7 +16,7 @@ type ResourceGenerator struct {
 	Doc    *openapi3.T
 	Config *config.Config
 
-	currentResource  *restutils.SpecResource
+	currentResource  *restutils.RESTResource
 	currentTerraform *config.TerraformResource
 }
 
@@ -54,6 +54,9 @@ type TemplateResourceAttribute struct {
 	// The Terraform Plugin Framework attribute data type, for example, "types.String"
 	FrameworkDataType string
 
+	// If the type is a list or map, this is the type of the inner element
+	FrameworkElemSchemaType string
+
 	// Whether or not the attribute is required
 	Required bool
 
@@ -62,6 +65,21 @@ type TemplateResourceAttribute struct {
 
 	// Nested attributes that belong to this attribute
 	Attributes []*TemplateResourceAttribute
+
+	// IsList determines should be true if this represents an array attribute
+	IsList bool
+
+	// IsComposite determines which type of schema this is: simple or composite
+	IsComposite bool
+
+	// CompositeFunction must be set to ListNestedAttributes when both IsList and
+	// IsComposite are true. It should be set to SingleNestedAttributes when IsList is false
+	// and IsComposite is true.
+	CompositeFunction string
+
+	// CompositeOptions must be set to ListNestedAttributeOptions{} when both IsList
+	// and IsComposite are true
+	CompositeOptions string
 }
 
 var _ Generator = (*ResourceGenerator)(nil)
@@ -73,6 +91,10 @@ func toTerraformFrameworkSchemaType(tfType string) string {
 		return "types.NumberType"
 	} else if tfType == "bool" {
 		return "types.BoolType"
+	} else if tfType == "map" {
+		return "types.MapType"
+	} else if tfType == "list" {
+		return "types.ListType"
 	}
 	panic(fmt.Sprintf("invalid tf type \"%s\"", tfType))
 }
@@ -84,6 +106,10 @@ func toTerraformFrameworkDataType(tfType string) string {
 		return "types.Number"
 	} else if tfType == "bool" {
 		return "types.Bool"
+	} else if tfType == "map" {
+		return "types.Map"
+	} else if tfType == "list" {
+		return "types.List"
 	}
 	panic(fmt.Sprintf("invalid tf type \"%s\"", tfType))
 }
@@ -95,6 +121,10 @@ func toTerraformType(specType string) string {
 		return "string"
 	} else if specType == "boolean" {
 		return "bool"
+	} else if specType == "object" {
+		return "map"
+	} else if specType == "array" {
+		return "list"
 	}
 	panic(fmt.Sprintf("invalid spec type \"%s\"", specType))
 }
@@ -128,7 +158,7 @@ type {{ .ResourceStruct }}Data struct {
 	{{ .DataName }} {{ .FrameworkDataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" +
 		`	{{- end}}
 }
-{{ define "SchemaAttr" }}
+{{ define "SimpleAttr" }}
 	"{{.TfName}}": {
 		MarkdownDescription: "{{ .Description }}",
 		Type:                {{ .FrameworkSchemaType }},
@@ -136,11 +166,42 @@ type {{ .ResourceStruct }}Data struct {
 		Optional:            {{ .Optional }},
 	},
 {{ end }}
+{{ define "CompositeListAttr" }}
+	"{{.TfName}}": {
+		MarkdownDescription: "{{ .Description }}",
+		Required:            {{ .Required }},
+		Optional:            {{ .Optional }},
+		Attributes:          tfsdk.{{ .CompositeFunction }}(map[string]tfsdk.Attribute{
+			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
+		}, &tfsdk.{{ .CompositeOptions }}),
+	},
+{{ end }}
+{{ define "CompositeAttr" }}
+	"{{.TfName}}": {
+		MarkdownDescription: "{{ .Description }}",
+		Required:            {{ .Required }},
+		Optional:            {{ .Optional }},
+		Attributes:          tfsdk.SingleNestedAttributes(map[string]tfsdk.Attribute{
+			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
+		}),
+	},
+{{ end }}
+{{ define "Attr" }}
+	{{ if .IsComposite }}
+		{{ if .IsList }}
+			{{ template "CompositeListAttr" . }}
+		{{ else }}
+			{{ template "CompositeAttr" . }}
+		{{ end}}
+	{{ else }}
+		{{ template "SimpleAttr" . }}
+	{{ end }}
+{{ end }}
 func (t {{ .ResourceTypeStruct }}) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		MarkdownDescription: "TODO",
 		Attributes: map[string]tfsdk.Attribute{
-			{{- range $attribute := .Attributes }}{{ template "SchemaAttr" $attribute }}{{- end}}
+			{{- range $attribute := .Attributes }}{{ template "Attr" $attribute }}{{- end}}
 		},
 	}, nil
 }
@@ -266,7 +327,9 @@ func (g *ResourceGenerator) Generate(destinationPath string) error {
 		return err
 	}
 
-	resources, err := restutils.BindResources(g.Doc, bindings)
+	probe := restutils.NewProbe(g.Doc)
+	resources, err := probe.BindResources(bindings)
+
 	if err != nil {
 		// Provided error message is adequate
 		return err

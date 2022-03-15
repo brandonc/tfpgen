@@ -9,7 +9,7 @@ import (
 )
 
 // NewTerraformResource translates a probed REST resource into a configuration entity
-func NewTerraformResource(resource *restutils.SpecResource) *TerraformResource {
+func NewTerraformResource(resource *restutils.RESTResource) *TerraformResource {
 	mediaType := resource.DetermineContentMediaType()
 
 	if mediaType == nil {
@@ -91,7 +91,8 @@ func InitConfig(path string) error {
 		return fmt.Errorf("invalid openapi3 spec: %w", err)
 	}
 
-	resources := restutils.ProbeForResources(doc)
+	probe := restutils.NewProbe(doc)
+	resources := probe.ProbeForResources()
 
 	cfg := defaultConfig(path)
 

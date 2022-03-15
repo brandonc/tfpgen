@@ -14,7 +14,8 @@ func Test_NewTerraformResource(t *testing.T) {
 		t.Fatalf("invalid fixture: %s\n", err)
 	}
 
-	resources := restutils.ProbeForResources(doc)
+	probe := restutils.NewProbe(doc)
+	resources := probe.ProbeForResources()
 
 	t.Run("Boards resource", func(t *testing.T) {
 		boards, ok := resources["Boards"]
