@@ -15,17 +15,23 @@ import (
 // associated with a particular HTTP method: create, show, index, update, delete
 type RESTPseudonym string
 
-type Emitter string
-
 const (
+	// Create is the REST pseudonym for Create (Usually POST method on a collection endpoint)
 	Create RESTPseudonym = "create"
-	Show   RESTPseudonym = "show"
-	Index  RESTPseudonym = "index"
+
+	// Show is the REST pseudonym for Show (Usually GET method on a singleton endpoint, that is, an
+	// endpoint that contains a unique ID)
+	Show RESTPseudonym = "show"
+
+	// Index is the REST pseudonym for List (Usually GET method on a collection endpoint)
+	Index RESTPseudonym = "index"
+
+	// Update is the REST pseudonym for Update (Usually PUT, PATCH, or POST method on a singleton endpoint)
 	Update RESTPseudonym = "update"
+
+	// Delete is the REST pseudonym for Delete (Usually DELETE or POST method on a singleton endpoint)
 	Delete RESTPseudonym = "delete"
 )
-
-const JsonEmitter Emitter = "json"
 
 var successfulResponseCodes map[RESTPseudonym][]int = map[RESTPseudonym][]int{
 	Create: {201, 200},
@@ -35,20 +41,25 @@ var successfulResponseCodes map[RESTPseudonym][]int = map[RESTPseudonym][]int{
 	Delete: {200, 204},
 }
 
-var wellKnownContentTypes map[string]Emitter = map[string]Emitter{
-	"application/json": JsonEmitter,
+var wellKnownContentTypes map[string]interface{} = map[string]interface{}{
+	"application/json": nil,
 }
 
+// RESTProbe is the root level type for probing OpenAPI specifications
 type RESTProbe struct {
 	Document *openapi3.T
 }
 
+// RESTAction is the binding between a REST pseudonym, a method, and a path.
+// Several of these define all the possible CRUD actions on a conceptual
+// resource and the OpenAPI "paths" that define it.
 type RESTAction struct {
 	Name   RESTPseudonym
 	Method string
 	Path   string
 }
 
+// RESTResource is the conceptual resource that defines CRUD actions.
 type RESTResource struct {
 	Name       string
 	RESTIndex  *RESTAction
@@ -60,21 +71,47 @@ type RESTResource struct {
 	probe *RESTProbe
 }
 
+// Attribute is a summary of OpenAPI schema or properties that are
+// helpful when translating to another definition.
 type Attribute struct {
-	Name        string
-	Type        string
-	ElemType    string
-	Format      string
-	ReadOnly    bool
-	Required    bool
+	// Name is the key name of the attribute
+	Name string
+
+	// Type is the [OpenAPI data type](https://swagger.io/specification/#data-types).
+	// The possible values are integer, number, string, boolean, object, array
+	Type string
+
+	// ElemType is the OpenAPI data type of the array elements, which
+	// is only set if the Type is array
+	ElemType string
+
+	// Format is the OpenAPI [data type format](https://swagger.io/specification/#data-type-format)
+	Format string
+
+	// ReadOnly indicates whether this attribute is set by create/update attributes
+	// or if it is computed by the API.
+	ReadOnly bool
+
+	// Required indicates whether this attribute is required, either by a path
+	// parameter or required object schema.
+	Required bool
+
+	// Description is the OpenAPI description of the attribute.
 	Description string
-	Attributes  []*Attribute
+
+	// Attributes are set if this is an object type or an array type with object elements.
+	Attributes []*Attribute
+
+	// Schema is a pointer to the full OpenAPI schema for the attribute
+	Schema *openapi3.Schema
 }
 
+// String is a display string for the attribute
 func (a *Attribute) String() string {
 	return fmt.Sprintf("%s (%s)", a.Name, a.Type)
 }
 
+// NewProbe creates a new RESTProbe, specifying the OpenAPI document to probe
 func NewProbe(doc *openapi3.T) RESTProbe {
 	return RESTProbe{
 		Document: doc,
@@ -89,6 +126,7 @@ func (probe *RESTProbe) getOperation(path, method string) *openapi3.Operation {
 	return nil
 }
 
+// Paths return the set of URL paths that are bound to all REST actions
 func (s *RESTResource) Paths() []string {
 	set := make(map[string]interface{})
 	actions := []*RESTAction{
@@ -102,12 +140,14 @@ func (s *RESTResource) Paths() []string {
 	}
 
 	result := make([]string, 0, length)
-	for path, _ := range set {
+	for path := range set {
 		result = append(result, path)
 	}
 	return result
 }
 
+// GetOperation is a shortcut function for fetching an OpenAPI Operation
+// by path and method, which normally require two nil checks
 func (s *RESTResource) GetOperation(action *RESTAction) *openapi3.Operation {
 	if action == nil {
 		return nil
@@ -115,6 +155,8 @@ func (s *RESTResource) GetOperation(action *RESTAction) *openapi3.Operation {
 	return s.probe.getOperation(action.Path, action.Method)
 }
 
+// ProbeForAttributes creates a composite view of attributes associated with
+// and entire REST resource.
 func (s *RESTResource) ProbeForAttributes(mediaType string) []*Attribute {
 	return compositeAttributes(s, mediaType)
 }
@@ -174,6 +216,9 @@ func (probe *RESTProbe) ProbeForResources() map[string]*RESTResource {
 	return result
 }
 
+// DetermineContentMediaType tries to resolve the shared media type used by
+// a RESTResource. At this time, it only probes well known media types
+// on the Show action.
 func (s *RESTResource) DetermineContentMediaType() *string {
 	var mediaType *string = nil
 
@@ -233,24 +278,31 @@ func probeBuildAction(singleton bool, resource *RESTResource, action *RESTAction
 	return false, nil
 }
 
+// IsCRUD describes if a resource has Show, Delete and Create actions
+// which are thought to be the minimum necessary to manage it.
 func (r *RESTResource) IsCRUD() bool {
 	return r.RESTShow != nil &&
 		r.RESTDelete != nil &&
 		r.RESTCreate != nil
 }
 
+// CanUpdate describes if a resource has an Update action
 func (r *RESTResource) CanUpdate() bool {
 	return r.RESTUpdate != nil
 }
 
+// CanReadIdentity describes if a resource has a Show action
 func (r *RESTResource) CanReadIdentity() bool {
 	return r.RESTShow != nil
 }
 
+// CanReadCollection describes if a resource has an Index action
 func (r *RESTResource) CanReadCollection() bool {
 	return r.RESTIndex != nil
 }
 
+// makeKeyNameFromPath generates a CapitalCaseKey using the non-parameter
+// parts of a path to attempt to construct a meaningful resource name.
 func makeKeyNameFromPath(path string) string {
 	parts := strings.Split(path, "/")
 

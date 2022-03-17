@@ -8,6 +8,13 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// CompositeAttributes are combined parameter, request, and response attributes for
+// a particular RESTResource definition.
+
+// The reason why you would want to compose these attributes together is when
+// Trying to prioritize and redefine them, such as when you're generating a
+// terraform resource 🙃
+
 func isPrimitive(s *openapi3.Schema) bool {
 	return s.Type == "string" || s.Type == "integer" || s.Type == "number" || s.Type == "boolean"
 }
@@ -27,6 +34,9 @@ func isSimpleArray(s *openapi3.Schema) bool {
 func compositeAttributes(s *RESTResource, mediaType string) []*Attribute {
 	attMap := make(map[string]*Attribute)
 
+	// The path parameters and response body attributes from the show action
+	// are the canonical attributes for a resource. Show actions give us the
+	// full state of a resource.
 	if s.RESTShow != nil {
 		op := s.GetOperation(s.RESTShow)
 		if op != nil {
@@ -39,6 +49,8 @@ func compositeAttributes(s *RESTResource, mediaType string) []*Attribute {
 		}
 	}
 
+	// The request body attributes from the create action are also highly prioritized
+	// due to the data requirements to create them
 	if s.RESTCreate != nil {
 		op := s.GetOperation(s.RESTCreate)
 		if op != nil {
@@ -51,6 +63,7 @@ func compositeAttributes(s *RESTResource, mediaType string) []*Attribute {
 		}
 	}
 
+	// The request body attributes from the update action are also supported
 	if s.RESTUpdate != nil {
 		op := s.GetOperation(s.RESTCreate)
 		if op != nil {
@@ -66,6 +79,7 @@ func compositeAttributes(s *RESTResource, mediaType string) []*Attribute {
 	return attributeValues(attMap)
 }
 
+// attributeValues maps an attribute map to a slice
 func attributeValues(attMap map[string]*Attribute) []*Attribute {
 	if attMap == nil {
 		return nil
@@ -78,6 +92,9 @@ func attributeValues(attMap map[string]*Attribute) []*Attribute {
 	return result
 }
 
+// extractParameterAttributes extracts at all openapi operation parameters that are found
+// in the path. Other parameters are usually uninteresting and exhaustive for the purposes
+// or resource probing.
 func extractParameterAttributes(attMap map[string]*Attribute, action RESTPseudonym, op *openapi3.Operation) {
 	for _, paramRef := range op.Parameters {
 		parameter := paramRef.Value
@@ -89,6 +106,7 @@ func extractParameterAttributes(attMap map[string]*Attribute, action RESTPseudon
 	}
 }
 
+// extractRequestAttributes recursively extracts attributes from the request body
 func extractRequestAttributes(attMap map[string]*Attribute, action RESTPseudonym, mediaType string, op *openapi3.Operation) {
 	if op.RequestBody != nil {
 		body := op.RequestBody.Value.Content.Get(mediaType)
@@ -100,6 +118,7 @@ func extractRequestAttributes(attMap map[string]*Attribute, action RESTPseudonym
 	}
 }
 
+// extractRequestAttributes recursively extracts attributes from the response body
 func extractResponseAttributes(attMap map[string]*Attribute, action RESTPseudonym, mediaType string, op *openapi3.Operation) {
 	for _, code := range successfulResponseCodes[action] {
 		if response := op.Responses.Get(code); response != nil {
@@ -114,15 +133,8 @@ func extractResponseAttributes(attMap map[string]*Attribute, action RESTPseudony
 	}
 }
 
-func sliceIncludes(slice []string, item string) bool {
-	for _, element := range slice {
-		if strings.Compare(element, item) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
+// extractFromSchemas recursively extracts attributes from the specified OpenAPI schema,
+// using the specified action to determine the attribute properties.
 func extractFromSchemas(attMap map[string]*Attribute, action RESTPseudonym, schemas openapi3.Schemas) {
 	for name, prop_ref := range schemas {
 		if action == Index || action == Show {
@@ -133,6 +145,15 @@ func extractFromSchemas(attMap map[string]*Attribute, action RESTPseudonym, sche
 	}
 }
 
+func sliceIncludes(slice []string, item string) bool {
+	for _, element := range slice {
+		if strings.Compare(element, item) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func formatForLog(format string) string {
 	if len(format) > 0 {
 		return fmt.Sprintf(" (%s)", format)
@@ -140,9 +161,12 @@ func formatForLog(format string) string {
 	return ""
 }
 
+// update will create or update the specified attribute map from schema, recursively extracting
+// attributes from sub-schema.
 func update(attMap map[string]*Attribute, action RESTPseudonym, name string, readonly bool, required bool, schema *openapi3.Schema) {
 	existing, ok := attMap[name]
 	if !ok {
+		// This is an attribute we've not seen before.
 		log.Printf("[DEBUG] Found param %s (%s) for %s", name, schema.Type, action)
 		var attSub map[string]*Attribute = nil
 
@@ -174,14 +198,16 @@ func update(attMap map[string]*Attribute, action RESTPseudonym, name string, rea
 			Description: schema.Description,
 			Required:    required,
 			Attributes:  attributeValues(attSub),
+			Schema:      schema,
 		}
 	} else {
-		// readonly and required only need to be detected once per param to be set
-		// So it would not be advisable to update these values every time update is called
+		// This is an attribute we've seen before. The readonly property
+		// only need to be detected once per param to be set.
 		if !readonly && existing.ReadOnly {
 			log.Printf("[DEBUG] Param %s (%s) for %s is not read-only", name, schema.Type, action)
 			setReadonlyAll(existing, false)
 		}
+
 		if existing.Type != schema.Type {
 			log.Printf(
 				"[WARN] Expected property %s type %s%s to be %s%s",
@@ -191,6 +217,9 @@ func update(attMap map[string]*Attribute, action RESTPseudonym, name string, rea
 	}
 }
 
+// setReadonlyAll recursively sets the readsonly property to true,
+// indicating that the property and its subattributes are only ever
+// read from the API, and not set by clients.
 func setReadonlyAll(att *Attribute, value bool) {
 	att.ReadOnly = value
 	if att.Attributes != nil {
