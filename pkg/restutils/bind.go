@@ -72,7 +72,7 @@ func (p *RESTProbe) BindResources(bindings []RESTBinding) (map[string]*RESTResou
 	return result, nil
 }
 
-func bindOperation(doc *openapi3.T, binding *ActionBinding, action ActionName) (*RESTAction, error) {
+func bindOperation(doc *openapi3.T, binding *ActionBinding, action RESTPseudonym) (*RESTAction, error) {
 	pathItem, ok := doc.Paths[binding.Path]
 
 	if !ok {

@@ -11,21 +11,23 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
-type ActionName string
+// RESTPseudonym is the REST endpoint pseudonym that is not necessarily
+// associated with a particular HTTP method: create, show, index, update, delete
+type RESTPseudonym string
 
 type Emitter string
 
 const (
-	Create ActionName = "create"
-	Show   ActionName = "show"
-	Index  ActionName = "index"
-	Update ActionName = "update"
-	Delete ActionName = "delete"
+	Create RESTPseudonym = "create"
+	Show   RESTPseudonym = "show"
+	Index  RESTPseudonym = "index"
+	Update RESTPseudonym = "update"
+	Delete RESTPseudonym = "delete"
 )
 
 const JsonEmitter Emitter = "json"
 
-var successfulResponseCodes map[ActionName][]int = map[ActionName][]int{
+var successfulResponseCodes map[RESTPseudonym][]int = map[RESTPseudonym][]int{
 	Create: {201, 200},
 	Show:   {200, 203},
 	Index:  {200, 203},
@@ -42,7 +44,7 @@ type RESTProbe struct {
 }
 
 type RESTAction struct {
-	Name   ActionName
+	Name   RESTPseudonym
 	Method string
 	Path   string
 }
@@ -208,7 +210,7 @@ func (s *RESTResource) probeMediaType(op *RESTAction, successCodes []int) (*stri
 	return nil, errors.New("no content body types were defined on the specified operation")
 }
 
-func probeBuildAction(singleton bool, resource *RESTResource, action *RESTAction, actionName ActionName, path string, pathItem *openapi3.PathItem, probeMethods []string) (bool, *RESTAction) {
+func probeBuildAction(singleton bool, resource *RESTResource, action *RESTAction, RESTPseudonym RESTPseudonym, path string, pathItem *openapi3.PathItem, probeMethods []string) (bool, *RESTAction) {
 	for _, method := range probeMethods {
 		oapiOp := pathItem.GetOperation(method)
 		if oapiOp == nil {
@@ -217,12 +219,12 @@ func probeBuildAction(singleton bool, resource *RESTResource, action *RESTAction
 
 		if (!singleton && !strings.HasSuffix(strings.ToLower(path), "}")) || (singleton && strings.HasSuffix(strings.ToLower(path), "}")) {
 			if action != nil {
-				fmt.Printf("warning: %s already has a %s operation defined at %s\n", resource.Name, actionName, action.Path)
+				fmt.Printf("warning: %s already has a %s operation defined at %s\n", resource.Name, RESTPseudonym, action.Path)
 				return false, nil
 			}
 
 			return true, &RESTAction{
-				Name:   actionName,
+				Name:   RESTPseudonym,
 				Method: method,
 				Path:   path,
 			}

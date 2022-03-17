@@ -91,7 +91,7 @@ func (c *Config) write(path string) error {
 	return os.WriteFile(path, d, 0644)
 }
 
-func ensureBinding(key string, action restutils.ActionName, ba *ActionBinding) error {
+func ensureBinding(key string, action restutils.RESTPseudonym, ba *ActionBinding) error {
 	if ba == nil || len(ba.Path) == 0 {
 		return fmt.Errorf("resource %s, action %s is missing a binding", key, action)
 	}

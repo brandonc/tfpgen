@@ -78,7 +78,7 @@ func attributeValues(attMap map[string]*Attribute) []*Attribute {
 	return result
 }
 
-func extractParameterAttributes(attMap map[string]*Attribute, action ActionName, op *openapi3.Operation) {
+func extractParameterAttributes(attMap map[string]*Attribute, action RESTPseudonym, op *openapi3.Operation) {
 	for _, paramRef := range op.Parameters {
 		parameter := paramRef.Value
 		if parameter.In == "path" {
@@ -89,7 +89,7 @@ func extractParameterAttributes(attMap map[string]*Attribute, action ActionName,
 	}
 }
 
-func extractRequestAttributes(attMap map[string]*Attribute, action ActionName, mediaType string, op *openapi3.Operation) {
+func extractRequestAttributes(attMap map[string]*Attribute, action RESTPseudonym, mediaType string, op *openapi3.Operation) {
 	if op.RequestBody != nil {
 		body := op.RequestBody.Value.Content.Get(mediaType)
 		if body != nil {
@@ -100,7 +100,7 @@ func extractRequestAttributes(attMap map[string]*Attribute, action ActionName, m
 	}
 }
 
-func extractResponseAttributes(attMap map[string]*Attribute, action ActionName, mediaType string, op *openapi3.Operation) {
+func extractResponseAttributes(attMap map[string]*Attribute, action RESTPseudonym, mediaType string, op *openapi3.Operation) {
 	for _, code := range successfulResponseCodes[action] {
 		if response := op.Responses.Get(code); response != nil {
 			body := response.Value.Content.Get(mediaType)
@@ -123,7 +123,7 @@ func sliceIncludes(slice []string, item string) bool {
 	return false
 }
 
-func extractFromSchemas(attMap map[string]*Attribute, action ActionName, schemas openapi3.Schemas) {
+func extractFromSchemas(attMap map[string]*Attribute, action RESTPseudonym, schemas openapi3.Schemas) {
 	for name, prop_ref := range schemas {
 		if action == Index || action == Show {
 			update(attMap, action, name, true, false, prop_ref.Value)
@@ -140,7 +140,7 @@ func formatForLog(format string) string {
 	return ""
 }
 
-func update(attMap map[string]*Attribute, action ActionName, name string, readonly bool, required bool, schema *openapi3.Schema) {
+func update(attMap map[string]*Attribute, action RESTPseudonym, name string, readonly bool, required bool, schema *openapi3.Schema) {
 	existing, ok := attMap[name]
 	if !ok {
 		log.Printf("[DEBUG] Found param %s (%s) for %s", name, schema.Type, action)
