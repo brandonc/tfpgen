@@ -81,8 +81,8 @@ type Config struct {
 	Output   map[string]*TerraformResource `yaml:"output"`
 }
 
-// write writes the configuration data to the specified path
-func (c *Config) write(path string) error {
+// Write writes the configuration data to the specified path
+func (c *Config) Write(path string) error {
 	d, err := yaml.Marshal(c)
 	if err != nil {
 		return err

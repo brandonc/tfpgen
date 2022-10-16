@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/brandonc/tfpgen/internal/config"
+	"github.com/brandonc/tfpgen/pkg/naming"
 	"github.com/brandonc/tfpgen/pkg/restutils"
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -25,9 +26,8 @@ type TemplateResourceData struct {
 	PackageName                  string
 	AcceptanceTestFunctionPrefix string
 	TerraformTypeName            string
-	FactoryFunctionName          string
+	TerraformTypeNameTitle       string
 	ConfigKey                    string
-	ResourceTypeStruct           string
 	ResourceStruct               string
 	Description                  string
 	Attributes                   []*TemplateResourceAttribute
@@ -76,10 +76,6 @@ type TemplateResourceAttribute struct {
 	// IsComposite are true. It should be set to SingleNestedAttributes when IsList is false
 	// and IsComposite is true.
 	CompositeFunction string
-
-	// CompositeOptions must be set to ListNestedAttributeOptions{} when both IsList
-	// and IsComposite are true
-	CompositeOptions string
 }
 
 var _ Generator = (*ResourceGenerator)(nil)
@@ -142,15 +138,16 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
 
-type {{ .ResourceTypeStruct }} struct{}
+type {{ .ResourceStruct }} struct{}
 
-type {{ .ResourceStruct }} struct {
-	Provider Provider
+func New{{ .TerraformTypeName }}() resource.Resource {
+	return &{{ .ResourceStruct }}{}
 }
 
 type {{ .ResourceStruct }}Data struct {
@@ -158,10 +155,15 @@ type {{ .ResourceStruct }}Data struct {
 	{{ .DataName }} {{ .FrameworkDataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" +
 		`	{{- end}}
 }
+
+func (r *{{ .ResourceStruct }}) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_{{ .TerraformTypeName }}"
+}
+
 {{ define "SimpleAttr" }}
 	"{{.TfName}}": {
 		MarkdownDescription: "{{ .Description }}",
-		Type:                {{ .FrameworkSchemaType }},
+		Type:                {{ .FrameworkSchemaType }}{{ if .FrameworkElemSchemaType }}{ ElemType: {{ .FrameworkElemSchemaType }}}{{ end }},
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
 	},
@@ -173,7 +175,7 @@ type {{ .ResourceStruct }}Data struct {
 		Optional:            {{ .Optional }},
 		Attributes:          tfsdk.{{ .CompositeFunction }}(map[string]tfsdk.Attribute{
 			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
-		}, &tfsdk.{{ .CompositeOptions }}),
+		}),
 	},
 {{ end }}
 {{ define "CompositeAttr" }}
@@ -197,7 +199,7 @@ type {{ .ResourceStruct }}Data struct {
 		{{ template "SimpleAttr" . }}
 	{{ end }}
 {{ end }}
-func (t {{ .ResourceTypeStruct }}) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
+func (t *{{ .ResourceStruct }}) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		MarkdownDescription: "TODO",
 		Attributes: map[string]tfsdk.Attribute{
@@ -206,15 +208,7 @@ func (t {{ .ResourceTypeStruct }}) GetSchema(ctx context.Context) (tfsdk.Schema,
 	}, nil
 }
 
-func (t {{ .ResourceTypeStruct }}) NewResource(ctx context.Context, in tfsdk.Provider) (tfsdk.Resource, diag.Diagnostics) {
-	provider, diags := convertProviderType(in)
-
-	return {{ .ResourceStruct }}{
-		Provider: provider,
-	}, diags
-}
-
-func (r {{ .ResourceStruct }}) Create(ctx context.Context, req tfsdk.CreateResourceRequest, resp *tfsdk.CreateResourceResponse) {
+func (r *{{ .ResourceStruct }}) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
 	var data {{ .ResourceStruct }}Data
 
 	diags := req.Config.Get(ctx, &data)
@@ -238,7 +232,7 @@ func (r {{ .ResourceStruct }}) Create(ctx context.Context, req tfsdk.CreateResou
 	tflog.Info(ctx, "created a {{ .ResourceStruct }} resource")
 }
 
-func (r {{ .ResourceStruct }}) Read(ctx context.Context, req tfsdk.ReadResourceRequest, resp *tfsdk.ReadResourceResponse) {
+func (r *{{ .ResourceStruct }}) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
 	var data {{ .ResourceStruct }}Data
 
 	diags := req.State.Get(ctx, &data)
@@ -262,7 +256,7 @@ func (r {{ .ResourceStruct }}) Read(ctx context.Context, req tfsdk.ReadResourceR
 	tflog.Info(ctx, "read a {{ .ResourceStruct }} resource")
 }
 
-func (r {{ .ResourceStruct }}) Update(ctx context.Context, req tfsdk.UpdateResourceRequest, resp *tfsdk.UpdateResourceResponse) {
+func (r *{{ .ResourceStruct }}) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data {{ .ResourceStruct }}Data
 
 	diags := req.Plan.Get(ctx, &data)
@@ -286,7 +280,7 @@ func (r {{ .ResourceStruct }}) Update(ctx context.Context, req tfsdk.UpdateResou
 	tflog.Info(ctx, "updated a {{ .ResourceStruct }} resource")
 }
 
-func (r {{ .ResourceStruct }}) Delete(ctx context.Context, req tfsdk.DeleteResourceRequest, resp *tfsdk.DeleteResourceResponse) {
+func (r *{{ .ResourceStruct }}) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
 	var data {{ .ResourceStruct }}Data
 
 	diags := req.State.Get(ctx, &data)
@@ -307,11 +301,6 @@ func (r {{ .ResourceStruct }}) Delete(ctx context.Context, req tfsdk.DeleteResou
 	resp.State.RemoveResource(ctx)
 
 	tflog.Info(ctx, "deleted a {{ .ResourceStruct }} resource")
-}
-
-func (r {{ .ResourceStruct }}) ImportState(ctx context.Context, req tfsdk.ImportResourceStateRequest, resp *tfsdk.ImportResourceStateResponse) {
-	tfsdk.ResourceImportStateNotImplemented(ctx, "", resp)
-	tflog.Info(ctx, "imported a {{ .ResourceStruct }} resource")
 }
 `
 }
@@ -361,9 +350,8 @@ func (g *ResourceGenerator) CreateTemplateData() interface{} {
 		AcceptanceTestFunctionPrefix: "AccTest_",
 		Attributes:                   templateAttributes(g.currentResource, g.currentTerraform),
 		TerraformTypeName:            g.currentTerraform.TfTypeNameSuffix,
-		FactoryFunctionName:          fmt.Sprintf("%sType_%s", g.currentTerraform.TfType, g.currentTerraform.TfTypeNameSuffix),
+		TerraformTypeNameTitle:       naming.ToTitleName(g.currentTerraform.TfTypeNameSuffix),
 		ConfigKey:                    g.currentResource.Name,
-		ResourceTypeStruct:           fmt.Sprintf("%sResourceType", g.currentTerraform.TfTypeNameSuffix),
 		ResourceStruct:               fmt.Sprintf("Resource%s", g.currentResource.Name),
 	}
 }

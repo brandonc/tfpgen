@@ -102,7 +102,7 @@ func InitConfig(path string) error {
 		}
 	}
 
-	if err = cfg.write("tfpgen.yaml"); err != nil {
+	if err = cfg.Write("tfpgen.yaml"); err != nil {
 		return err
 	}
 

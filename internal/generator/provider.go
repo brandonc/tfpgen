@@ -28,9 +28,11 @@ package {{ .PackageName }}
 
 import (
 	"context"
-	"fmt"
 
+	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
@@ -43,6 +45,11 @@ type Provider struct {
 type providerData struct {
 	ApiToken types.String ` + "`tfsdk:\"api_token\"`" + `
 	Endpoint types.String ` + "`tfsdk:\"endpoint\"`" + `
+}
+
+func (p *Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
+	resp.TypeName = "{{ .ProviderName }}"
+	resp.Version = p.Version
 }
 
 func (p *Provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
@@ -62,7 +69,7 @@ func (p *Provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostic
 	}, nil
 }
 
-func (p *Provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderRequest, resp *tfsdk.ConfigureProviderResponse) {
+func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
 	var data providerData
 	diags := req.Config.Get(ctx, &data)
 	resp.Diagnostics.Append(diags...)
@@ -81,59 +88,30 @@ func (p *Provider) Configure(ctx context.Context, req tfsdk.ConfigureProviderReq
 	p.Configured = true
 }
 
-func (p *Provider) GetResources(ctx context.Context) (map[string]tfsdk.ResourceType, diag.Diagnostics) {
+func (p *Provider) Resources(ctx context.Context) []func() resource.Resource {
 	{{- $provider := . }}
-	return map[string]tfsdk.ResourceType{
-		{{- range $resource := .Resources }}
-			"{{ $provider.ProviderName }}_{{ .TfTypeNameSuffix }}": {{ .TfTypeNameSuffix }}ResourceType{},
+	return []func() resource.Resource{
+		{{- range $dataSource := .Resources }}
+			New{{ .TfTypeNameSuffix }},
 		{{- end}}
-	}, nil
+	}
 }
 
-func (p *Provider) GetDataSources(ctx context.Context) (map[string]tfsdk.DataSourceType, diag.Diagnostics) {
+func (p *Provider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	{{- $provider := . }}
-	return map[string]tfsdk.DataSourceType{
+	return []func() datasource.DataSource{
 		{{- range $dataSource := .DataSources }}
-			"{{ $provider.ProviderName }}_{{ .TfTypeNameSuffix }}": {{ .TfTypeNameSuffix }}DataSourceType{},
+			New{{ .TfTypeNameSuffix }}DataSource,
 		{{- end}}
-	}, nil
+	}
 }
 
-func New(version string) func() tfsdk.Provider {
-	return func() tfsdk.Provider {
+func New(version string) func() provider.Provider {
+	return func() provider.Provider {
 		return &Provider{
 			Version: version,
 		}
 	}
-}
-
-// convertProviderType is a helper function for NewResource and NewDataSource
-// implementations to associate the concrete provider type. Alternatively,
-// this helper can be skipped and the provider type can be directly type
-// asserted (e.g. provider: in.(*provider)), however using this can prevent
-// potential panics.
-func convertProviderType(in tfsdk.Provider) (Provider, diag.Diagnostics) {
-	var diags diag.Diagnostics
-
-	p, ok := in.(*Provider)
-
-	if !ok {
-		diags.AddError(
-			"Unexpected Provider Instance Type",
-			fmt.Sprintf("While creating the data source or resource, an unexpected provider type (%T) was received. This is always a bug in the provider code and should be reported to the provider developers.", p),
-		)
-		return Provider{}, diags
-	}
-
-	if p == nil {
-		diags.AddError(
-			"Unexpected Provider Instance Type",
-			"While creating the data source or resource, an unexpected empty provider instance was received. This is always a bug in the provider code and should be reported to the provider developers.",
-		)
-		return Provider{}, diags
-	}
-
-	return *p, diags
 }
 `
 }

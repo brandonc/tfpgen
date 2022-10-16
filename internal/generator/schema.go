@@ -30,7 +30,6 @@ func templateAttribute(nestingLevel int, att *restutils.Attribute) *TemplateReso
 
 				if att.ElemType == "composite" {
 					result.CompositeFunction = "ListNestedAttributes"
-					result.CompositeOptions = "ListNestedAttributesOptions{}"
 				}
 			} else {
 				result.CompositeFunction = "SingleNestedAttributes"

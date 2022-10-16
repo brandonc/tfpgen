@@ -13,10 +13,10 @@ type MainGenerator struct {
 }
 
 type MainGeneratorTemplateData struct {
-	Registry             string
-	ProviderOrganization string
-	ProviderName         string
-	ModuleRepository     string
+	Registry          string
+	ProviderNamespace string
+	ProviderName      string
+	ModuleRepository  string
 }
 
 // Compile time proof that MainGenerator is a Generator
@@ -31,24 +31,19 @@ import (
 	"log"
 
 	"{{ .ModuleRepository }}/provider"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/providerserver"
 )
 
 var (
-	// these will be set by the goreleaser configuration
-	// to appropriate values for the compiled binary
 	version string = "dev"
-
-	// goreleaser can also pass the specific commit if you want
-	// commit  string = ""
 )
 
 func main() {
-	opts := tfsdk.ServeOpts{
-		Name: "{{ .Registry }}/{{ .ProviderOrganization }}/{{ .ProviderName }}",
+	opts := providerserver.ServeOpts{
+		Address: "{{ .Registry }}/{{ .ProviderNamespace }}/{{ .ProviderName }}",
 	}
 
-	err := tfsdk.Serve(context.Background(), provider.New(version), opts)
+	err := providerserver.Serve(context.Background(), provider.New(version), opts)
 
 	if err != nil {
 		log.Fatal(err.Error())
@@ -67,10 +62,10 @@ func (g *MainGenerator) PackageName() string {
 
 func (g *MainGenerator) CreateTemplateData() interface{} {
 	return &MainGeneratorTemplateData{
-		Registry:             g.Config.Provider.Registry,
-		ProviderOrganization: g.Config.Provider.ProviderOrganization(),
-		ProviderName:         g.Config.Provider.ProviderName(),
-		ModuleRepository:     g.Config.Provider.ModuleRepository,
+		Registry:          g.Config.Provider.Registry,
+		ProviderNamespace: g.Config.Provider.ProviderOrganization(),
+		ProviderName:      g.Config.Provider.ProviderName(),
+		ModuleRepository:  g.Config.Provider.ModuleRepository,
 	}
 }
 

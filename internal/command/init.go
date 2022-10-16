@@ -14,6 +14,11 @@ func (c InitCommand) Help() string {
 }
 
 func (c InitCommand) Run(args []string) int {
+	if len(args) != 1 {
+		fmt.Println("missing required argument [path] specifying an OpenAPI 3 spec file")
+		return 1
+	}
+
 	if err := config.InitConfig(args[0]); err != nil {
 		fmt.Println(err)
 		return 2

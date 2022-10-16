@@ -398,6 +398,7 @@ func Test_compositeAttributes(t *testing.T) {
 													t.Errorf("Attribute %s Type expected %s, actual %s", innerDNSAttr, c.Type, foundDNS.Type)
 												}
 
+												// All three DNS attributes are string arrays
 												if foundDNS.ElemType != "string" {
 													t.Errorf("Attribute %s Type expected %s, actual %s", innerDNSAttr, "string", foundDNS.ElemType)
 												}

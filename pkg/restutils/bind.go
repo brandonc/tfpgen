@@ -6,18 +6,38 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 )
 
+// In describes where (in the protocol) an attribute is bound
+type In string
+
+const (
+	// InPath describes that the attribute is bound in the path
+	InPath    In = "path"
+	InContent In = "content"
+	InQuery   In = "query"
+	InCookie  In = "cookie"
+	InHeader  In = "header"
+)
+
 type ActionBinding struct {
 	Path   string
 	Method string
 }
 
+type AttributeBinding struct {
+	In         In
+	Name       string
+	SpecType   string
+	Attributes []*AttributeBinding
+}
+
 type RESTBinding struct {
-	Name         string
-	CreateAction *ActionBinding
-	ReadAction   *ActionBinding
-	UpdateAction *ActionBinding
-	DeleteAction *ActionBinding
-	IndexAction  *ActionBinding
+	Name                string
+	CreateAction        *ActionBinding
+	ReadAction          *ActionBinding
+	UpdateAction        *ActionBinding
+	DeleteAction        *ActionBinding
+	IndexAction         *ActionBinding
+	CompositeAttributes []*AttributeBinding
 }
 
 func (p *RESTProbe) BindResources(bindings []RESTBinding) (map[string]*RESTResource, error) {

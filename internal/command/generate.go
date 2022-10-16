@@ -11,8 +11,7 @@ import (
 	"github.com/mitchellh/cli"
 )
 
-type GenerateCommand struct {
-}
+type GenerateCommand struct{}
 
 func (c GenerateCommand) Help() string {
 	return "Usage: generate [path]\nGenerate Terraform provider code using a tfpgen configuration file."

@@ -1,0 +1,27 @@
+api:
+  scheme: bearer_token
+  default_endpoint: https://api.example.com/
+provider:
+  name: brandonc/tfpgenexample
+  registry: registry.terraform.io
+  repository: github.com/brandonc/terraform-provider-tfpgenexample
+  package_name: provider
+specfile: ../../examples/openapi3/nomad.yaml
+output:
+  Quota:
+    tf_type_name_suffix: quota
+    tf_type: resource
+    media_type: application/json
+    binding:
+      create:
+        path: /quota
+        method: POST
+      read:
+        path: /quota/{specName}
+        method: GET
+      update:
+        path: /quota/{specName}
+        method: POST
+      delete:
+        path: /quota/{specName}
+        method: DELETE
