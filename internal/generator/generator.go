@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"text/template"
 
 	"github.com/brandonc/tfpgen/internal/config"
@@ -44,6 +45,13 @@ func GenerateAll(basePath string, doc *openapi3.T, config *config.Config) error 
 	err = resourceGenerator.Generate(fmt.Sprintf("%s/provider", basePath))
 	if err != nil {
 		return fmt.Errorf("could not generate resources: %w", err)
+	}
+
+	fmtcmd := exec.Command("go", "fmt", "./...")
+	fmtcmd.Dir = fmt.Sprintf("%s/", basePath)
+	err = fmtcmd.Run()
+	if err != nil {
+		return fmt.Errorf("could not format generated code: %w", err)
 	}
 
 	return nil

@@ -4,7 +4,6 @@ package generator
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/brandonc/tfpgen/internal/config"
 	"github.com/brandonc/tfpgen/pkg/naming"
@@ -57,6 +56,9 @@ type TemplateResourceAttribute struct {
 	// If the type is a list or map, this is the type of the inner element
 	FrameworkElemSchemaType string
 
+	// Whether or not to mark this attribute as sensitive
+	Sensitive bool
+
 	// Whether or not the attribute is required
 	Required bool
 
@@ -69,13 +71,8 @@ type TemplateResourceAttribute struct {
 	// IsList determines should be true if this represents an array attribute
 	IsList bool
 
-	// IsComposite determines which type of schema this is: simple or composite
-	IsComposite bool
-
-	// CompositeFunction must be set to ListNestedAttributes when both IsList and
-	// IsComposite are true. It should be set to SingleNestedAttributes when IsList is false
-	// and IsComposite is true.
-	CompositeFunction string
+	// IsComplex determines which type of schema this is: simple or composite
+	IsComplex bool
 }
 
 var _ Generator = (*ResourceGenerator)(nil)
@@ -95,21 +92,6 @@ func toTerraformFrameworkSchemaType(tfType string) string {
 	panic(fmt.Sprintf("invalid tf type \"%s\"", tfType))
 }
 
-func toTerraformFrameworkDataType(tfType string) string {
-	if tfType == "string" {
-		return "types.String"
-	} else if tfType == "number" {
-		return "types.Number"
-	} else if tfType == "bool" {
-		return "types.Bool"
-	} else if tfType == "map" {
-		return "types.Map"
-	} else if tfType == "list" {
-		return "types.List"
-	}
-	panic(fmt.Sprintf("invalid tf type \"%s\"", tfType))
-}
-
 func toTerraformType(specType string) string {
 	if specType == "integer" {
 		return "number"
@@ -125,9 +107,15 @@ func toTerraformType(specType string) string {
 	panic(fmt.Sprintf("invalid spec type \"%s\"", specType))
 }
 
-func indent(spaces int, v string) string {
-	pad := strings.Repeat("\t", spaces)
-	return pad + strings.Replace(v, "\n", "\n"+pad, -1)
+func toGoType(specType string) string {
+	if specType == "integer" {
+		return "int"
+	} else if specType == "string" {
+		return "string"
+	} else if specType == "boolean" {
+		return "bool"
+	}
+	return "interface{}" // TODO: custom nested data types
 }
 
 func (g *ResourceGenerator) Template() string {
@@ -166,39 +154,29 @@ func (r *{{ .ResourceStruct }}) Metadata(_ context.Context, req resource.Metadat
 		Type:                {{ .FrameworkSchemaType }}{{ if .FrameworkElemSchemaType }}{ ElemType: {{ .FrameworkElemSchemaType }}}{{ end }},
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
-	},
-{{ end }}
-{{ define "CompositeListAttr" }}
+		Sensitive:           {{ .Sensitive }},
+	},{{ end }}
+{{ define "ComplexListAttr" }}
 	"{{.TfName}}": {
 		MarkdownDescription: "{{ .Description }}",
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
-		Attributes:          tfsdk.{{ .CompositeFunction }}(map[string]tfsdk.Attribute{
+		Sensitive:           {{ .Sensitive }},
+		Attributes:          tfsdk.ListNestedAttributes(map[string]tfsdk.Attribute{
 			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
 		}),
-	},
-{{ end }}
-{{ define "CompositeAttr" }}
+	},{{ end }}
+{{ define "ComplexAttr" }}
 	"{{.TfName}}": {
 		MarkdownDescription: "{{ .Description }}",
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
+		Sensitive:           {{ .Sensitive }},
 		Attributes:          tfsdk.SingleNestedAttributes(map[string]tfsdk.Attribute{
 			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
 		}),
-	},
-{{ end }}
-{{ define "Attr" }}
-	{{ if .IsComposite }}
-		{{ if .IsList }}
-			{{ template "CompositeListAttr" . }}
-		{{ else }}
-			{{ template "CompositeAttr" . }}
-		{{ end}}
-	{{ else }}
-		{{ template "SimpleAttr" . }}
-	{{ end }}
-{{ end }}
+	},{{ end }}
+{{ define "Attr" }}{{ if .IsComplex }}{{ if .IsList }}{{ template "ComplexListAttr" . }}{{ else }}{{ template "ComplexAttr" . }}{{ end}}{{ else }}{{ template "SimpleAttr" . }}{{ end }}{{ end }}
 func (t *{{ .ResourceStruct }}) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		MarkdownDescription: "TODO",

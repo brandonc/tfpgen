@@ -4,13 +4,28 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"testing"
 
 	"github.com/brandonc/tfpgen/internal/command"
 	"github.com/brandonc/tfpgen/internal/config"
+	terraformJson "github.com/hashicorp/terraform-json"
 	"github.com/stretchr/testify/require"
 )
+
+func removeAllUnlessDebug(t *testing.T, dir, description string) {
+	t.Cleanup(func() {
+		if os.Getenv("DEBUG") != "" {
+			t.Logf("not deleting %s temp directory: %s", description, dir)
+		} else {
+			err := os.RemoveAll(dir)
+			if err != nil {
+				t.Log("warning: could not delete temp directory", dir)
+			}
+		}
+	})
+}
 
 func TestGenerate(t *testing.T) {
 	cmd := command.GenerateCommand{}
@@ -19,18 +34,7 @@ func TestGenerate(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "tfpgenexample")
 	require.NoError(t, err)
 
-	t.Cleanup(func() {
-		if os.Getenv("DEBUG") != "" {
-			t.Log("not deleting temp directory", tempDir)
-		} else {
-			err := os.RemoveAll(tempDir)
-			if err != nil {
-				t.Log("warning: could not delete temp directory", tempDir)
-			}
-		}
-	})
-
-	fmt.Printf("test working directory: %s\n", tempDir)
+	removeAllUnlessDebug(t, tempDir, "provider")
 
 	// Establish an absolute path to the nomad-quota config fixture, overwrite
 	// the relevant path to the Open API spec, and write the config to the temp dir
@@ -70,6 +74,66 @@ func TestGenerate(t *testing.T) {
 		if err != nil {
 			t.Fatalf("expected no error, received %s. Build output:\n\n%s", err, output)
 		}
+	})
+
+	t.Run("test provider schema output", func(t *testing.T) {
+		// Set up temp dir for terraform config using the built provider
+		tfDir, err := os.MkdirTemp("", "tf")
+		require.NoError(t, err)
+
+		removeAllUnlessDebug(t, tfDir, "terraform")
+
+		require.NoError(t,
+			os.WriteFile(path.Join(tfDir, "test.tfrc"), []byte(fmt.Sprintf(`provider_installation {
+	dev_overrides {
+		"brandonc/tfpgenexample" = "%s"
+	}
+	direct {}
+}`, tempDir)), 0700),
+		)
+
+		require.NoError(t,
+			os.WriteFile(path.Join(tfDir, "test.tf"), []byte(`terraform {
+	required_providers {
+		tfpgenexample = {
+			source = "brandonc/tfpgenexample"
+		}
+	}
+}
+
+resource "tfpgenexample_quota" "example" {
+	create_index = 0
+
+	description = "my quota"
+
+	limits = [{
+		hash = "myhash1"
+		region = "myregion1"
+	}]
+}
+`), 0700),
+		)
+
+		cmd := exec.Command("terraform", "providers", "schema", "-json")
+		cmd.Dir = tfDir
+		cmd.Env = append(cmd.Env, fmt.Sprintf("TF_CLI_CONFIG_FILE=%s", path.Join(tfDir, "test.tfrc")))
+
+		output, err := cmd.CombinedOutput()
+		require.NoError(t, err, fmt.Sprintf("unexpected error running terraform: %s", output))
+
+		schemas := terraformJson.ProviderSchemas{}
+		require.NoError(t, schemas.UnmarshalJSON(output))
+		require.NoError(t, schemas.Validate())
+
+		tfpgenSchema, ok := schemas.Schemas["registry.terraform.io/brandonc/tfpgenexample"]
+		require.True(t, ok)
+
+		quotaSchema, ok := tfpgenSchema.ResourceSchemas["tfpgenexample_quota"]
+		require.True(t, ok)
+
+		createIndexAttr, ok := quotaSchema.Block.Attributes["create_index"]
+		require.True(t, ok)
+		require.True(t, createIndexAttr.Optional)
 	})
 
 	t.Run("provider tests can run", func(t *testing.T) {

@@ -17,22 +17,16 @@ func templateAttribute(nestingLevel int, att *restutils.Attribute) *TemplateReso
 	}
 
 	if att.Type == "object" || att.Type == "array" {
-		if att.Type == "object" || (att.Type == "array" && att.ElemType == "composite") {
+		if att.Type == "object" || (att.Type == "array" && att.ElemType == "object") {
 			nested := make([]*TemplateResourceAttribute, 0, len(att.Attributes))
 			for _, subatt := range att.Attributes {
 				nested = append(nested, templateAttribute(nestingLevel+1, subatt))
 			}
-			result.IsComposite = true
+			result.IsComplex = true
 			result.Attributes = nested
 
 			if att.Type == "array" {
 				result.IsList = true
-
-				if att.ElemType == "composite" {
-					result.CompositeFunction = "ListNestedAttributes"
-				}
-			} else {
-				result.CompositeFunction = "SingleNestedAttributes"
 			}
 		} else if att.Type == "array" {
 			// Simple array type
@@ -40,8 +34,9 @@ func templateAttribute(nestingLevel int, att *restutils.Attribute) *TemplateReso
 		}
 	}
 
+	result.Sensitive = att.Format == "password"
 	result.FrameworkSchemaType = toTerraformFrameworkSchemaType(toTerraformType(att.Type))
-	result.FrameworkDataType = toTerraformFrameworkDataType(toTerraformType(att.Type))
+	result.FrameworkDataType = toGoType(att.Type)
 
 	return &result
 }

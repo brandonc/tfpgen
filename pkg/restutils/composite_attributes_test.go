@@ -217,8 +217,8 @@ func Test_compositeAttributes(t *testing.T) {
 				}
 
 				if attr == "Limits" {
-					if found.ElemType != "composite" {
-						t.Errorf("Attribute %s ElemType expected composite, actual %s", attr, found.ElemType)
+					if found.ElemType != "object" {
+						t.Errorf("Attribute %s ElemType expected object, actual %s", attr, found.ElemType)
 					}
 
 					if len(found.Attributes) != len(expectedLimitsAttributes) {

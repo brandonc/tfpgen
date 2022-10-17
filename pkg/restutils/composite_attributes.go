@@ -180,9 +180,9 @@ func update(attMap map[string]*Attribute, action RESTPseudonym, name string, rea
 			if isSimpleArray(schema) {
 				elemType = schema.Items.Value.Type
 			} else {
-				elemType = "composite"
+				elemType = "object"
 
-				log.Printf("[DEBUG] Extracting sub-parameters for composite array %s", name)
+				log.Printf("[DEBUG] Extracting sub-parameters for object array %s", name)
 				attSub = make(map[string]*Attribute, 0)
 				extractFromSchemas(attSub, action, schema.Items.Value.Properties)
 				log.Printf("[DEBUG] ...Found %d for %s", len(attSub), name)
