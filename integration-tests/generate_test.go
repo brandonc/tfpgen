@@ -12,6 +12,7 @@ import (
 	"github.com/brandonc/tfpgen/internal/config"
 	terraformJson "github.com/hashicorp/terraform-json"
 	"github.com/stretchr/testify/require"
+	"github.com/zclconf/go-cty/cty"
 )
 
 func removeAllUnlessDebug(t *testing.T, dir, description string) {
@@ -25,6 +26,70 @@ func removeAllUnlessDebug(t *testing.T, dir, description string) {
 			}
 		}
 	})
+}
+
+func shallowCopyAttribute(att *terraformJson.SchemaAttribute) terraformJson.SchemaAttribute {
+	return terraformJson.SchemaAttribute{
+		Optional:        att.Optional,
+		Required:        att.Required,
+		Description:     att.Description,
+		DescriptionKind: att.DescriptionKind,
+		Sensitive:       att.Sensitive,
+		AttributeType:   att.AttributeType,
+		Computed:        att.Computed,
+	}
+}
+
+func expectAttributesContains(t *testing.T, expected, actual map[string]*terraformJson.SchemaAttribute) {
+	t.Helper()
+
+	for key, expectedAtt := range expected {
+		actualAtt, ok := actual[key]
+		require.Truef(t, ok, "expected attribute not present: %s", key)
+
+		// Shallow copy the actual/expected attribute for comparison, so that expectations don't
+		// have to match the full heirarchy within.
+		expectedCopy := shallowCopyAttribute(expectedAtt)
+		actualCopy := shallowCopyAttribute(actualAtt)
+
+		require.EqualValuesf(t, expectedCopy, actualCopy, "expected %#v attribute, got %#v", expectedCopy, actualCopy)
+
+		if expectedAtt.AttributeNestedType == nil {
+			continue
+		}
+
+		if actualAtt.AttributeNestedType == nil || actualAtt.AttributeNestedType.Attributes == nil {
+			t.Errorf("expected attribute %s to contain nested attributes", key)
+		}
+
+		expectAttributesContains(t, expectedAtt.AttributeNestedType.Attributes, actualAtt.AttributeNestedType.Attributes)
+	}
+}
+
+func setupTerraformCommand(t *testing.T, providerDir, config, commandName string, commandArgs ...string) *exec.Cmd {
+	// Set up temp dir for terraform config using the built provider
+	tfDir, err := os.MkdirTemp("", "tf")
+	require.NoError(t, err)
+
+	removeAllUnlessDebug(t, tfDir, "terraform")
+
+	require.NoError(t,
+		os.WriteFile(path.Join(tfDir, "test.tfrc"), []byte(fmt.Sprintf(`provider_installation {
+dev_overrides {
+	"brandonc/tfpgenexample" = "%s"
+}
+direct {}
+}`, providerDir)), 0700))
+
+	require.NoError(t,
+		os.WriteFile(path.Join(tfDir, "test.tf"), []byte(config), 0700),
+	)
+
+	cmd := exec.Command(commandName, commandArgs...)
+	cmd.Dir = tfDir
+	cmd.Env = append(cmd.Env, fmt.Sprintf("TF_CLI_CONFIG_FILE=%s", path.Join(tfDir, "test.tfrc")))
+
+	return cmd
 }
 
 func TestGenerate(t *testing.T) {
@@ -77,46 +142,24 @@ func TestGenerate(t *testing.T) {
 	})
 
 	t.Run("test provider schema output", func(t *testing.T) {
-		// Set up temp dir for terraform config using the built provider
-		tfDir, err := os.MkdirTemp("", "tf")
-		require.NoError(t, err)
-
-		removeAllUnlessDebug(t, tfDir, "terraform")
-
-		require.NoError(t,
-			os.WriteFile(path.Join(tfDir, "test.tfrc"), []byte(fmt.Sprintf(`provider_installation {
-	dev_overrides {
-		"brandonc/tfpgenexample" = "%s"
+		cmd := setupTerraformCommand(t, tempDir, `terraform {
+required_providers {
+	tfpgenexample = {
+		source = "brandonc/tfpgenexample"
 	}
-	direct {}
-}`, tempDir)), 0700),
-		)
-
-		require.NoError(t,
-			os.WriteFile(path.Join(tfDir, "test.tf"), []byte(`terraform {
-	required_providers {
-		tfpgenexample = {
-			source = "brandonc/tfpgenexample"
-		}
-	}
+}
 }
 
 resource "tfpgenexample_quota" "example" {
-	create_index = 0
+create_index = 0
 
-	description = "my quota"
+description = "my quota"
 
-	limits = [{
-		hash = "myhash1"
-		region = "myregion1"
-	}]
-}
-`), 0700),
-		)
-
-		cmd := exec.Command("terraform", "providers", "schema", "-json")
-		cmd.Dir = tfDir
-		cmd.Env = append(cmd.Env, fmt.Sprintf("TF_CLI_CONFIG_FILE=%s", path.Join(tfDir, "test.tfrc")))
+limits = [{
+	hash = "myhash1"
+	region = "myregion1"
+}]
+}`, "terraform", "providers", "schema", "-json")
 
 		output, err := cmd.CombinedOutput()
 		require.NoError(t, err, fmt.Sprintf("unexpected error running terraform: %s", output))
@@ -131,14 +174,88 @@ resource "tfpgenexample_quota" "example" {
 		quotaSchema, ok := tfpgenSchema.ResourceSchemas["tfpgenexample_quota"]
 		require.True(t, ok)
 
-		createIndexAttr, ok := quotaSchema.Block.Attributes["create_index"]
-		require.True(t, ok)
-		require.True(t, createIndexAttr.Optional)
+		// Incomplete, but multiple nesting levels
+		expectedAttr := map[string]*terraformJson.SchemaAttribute{
+			"create_index": {
+				AttributeType:   cty.Number,
+				Optional:        true,
+				DescriptionKind: "plain",
+			},
+			"limits": {
+				Optional:        true,
+				DescriptionKind: "plain",
+				AttributeNestedType: &terraformJson.SchemaNestedAttributeType{
+					Attributes: map[string]*terraformJson.SchemaAttribute{
+						"hash": {
+							AttributeType:   cty.String,
+							Optional:        true,
+							DescriptionKind: "plain",
+						},
+						"region": {
+							AttributeType:   cty.String,
+							Optional:        true,
+							DescriptionKind: "plain",
+						},
+						"region_limit": {
+							Optional:        true,
+							DescriptionKind: "plain",
+							AttributeNestedType: &terraformJson.SchemaNestedAttributeType{
+								Attributes: map[string]*terraformJson.SchemaAttribute{
+									"cores": {
+										AttributeType:   cty.Number,
+										DescriptionKind: "plain",
+										Optional:        true,
+									},
+									"cpu": {
+										AttributeType:   cty.Number,
+										DescriptionKind: "plain",
+										Optional:        true,
+									},
+									"disk_mb": {
+										AttributeType:   cty.Number,
+										DescriptionKind: "plain",
+										Optional:        true,
+									},
+									"iops": {
+										AttributeType:   cty.Number,
+										DescriptionKind: "plain",
+										Optional:        true,
+									},
+									"memory_max_mb": {
+										AttributeType:   cty.Number,
+										DescriptionKind: "plain",
+										Optional:        true,
+									},
+									"memory_mb": {
+										AttributeType:   cty.Number,
+										DescriptionKind: "plain",
+										Optional:        true,
+									},
+									"networks": {
+										Optional:        true,
+										DescriptionKind: "plain",
+										AttributeNestedType: &terraformJson.SchemaNestedAttributeType{
+											Attributes: map[string]*terraformJson.SchemaAttribute{
+												"cidr": {
+													Optional:        true,
+													AttributeType:   cty.String,
+													DescriptionKind: "plain",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		expectAttributesContains(t, expectedAttr, quotaSchema.Block.Attributes)
 	})
 
 	t.Run("provider tests can run", func(t *testing.T) {
-		t.Skip()
-
 		cmd := exec.Command("go", "test", "./...")
 		cmd.Dir = tempDir
 
