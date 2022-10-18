@@ -16,6 +16,8 @@ import (
 )
 
 func removeAllUnlessDebug(t *testing.T, dir, description string) {
+	t.Helper()
+
 	t.Cleanup(func() {
 		if os.Getenv("DEBUG") != "" {
 			t.Logf("not deleting %s temp directory: %s", description, dir)
@@ -28,7 +30,9 @@ func removeAllUnlessDebug(t *testing.T, dir, description string) {
 	})
 }
 
-func shallowCopyAttribute(att *terraformJson.SchemaAttribute) terraformJson.SchemaAttribute {
+func shallowCopyAttribute(t *testing.T, att *terraformJson.SchemaAttribute) terraformJson.SchemaAttribute {
+	t.Helper()
+
 	return terraformJson.SchemaAttribute{
 		Optional:        att.Optional,
 		Required:        att.Required,
@@ -49,8 +53,8 @@ func expectAttributesContains(t *testing.T, expected, actual map[string]*terrafo
 
 		// Shallow copy the actual/expected attribute for comparison, so that expectations don't
 		// have to match the full heirarchy within.
-		expectedCopy := shallowCopyAttribute(expectedAtt)
-		actualCopy := shallowCopyAttribute(actualAtt)
+		expectedCopy := shallowCopyAttribute(t, expectedAtt)
+		actualCopy := shallowCopyAttribute(t, actualAtt)
 
 		require.EqualValuesf(t, expectedCopy, actualCopy, "expected %#v attribute, got %#v", expectedCopy, actualCopy)
 
@@ -67,6 +71,8 @@ func expectAttributesContains(t *testing.T, expected, actual map[string]*terrafo
 }
 
 func setupTerraformCommand(t *testing.T, providerDir, config, commandName string, commandArgs ...string) *exec.Cmd {
+	t.Helper()
+
 	// Set up temp dir for terraform config using the built provider
 	tfDir, err := os.MkdirTemp("", "tf")
 	require.NoError(t, err)
