@@ -30,7 +30,7 @@ func removeAllUnlessDebug(t *testing.T, dir, description string) {
 	})
 }
 
-func shallowCopyAttribute(t *testing.T, att *terraformJson.SchemaAttribute) terraformJson.SchemaAttribute {
+func shallowCopyAttributeS(t *testing.T, att *terraformJson.SchemaAttribute) terraformJson.SchemaAttribute {
 	t.Helper()
 
 	return terraformJson.SchemaAttribute{
@@ -53,8 +53,8 @@ func expectAttributesContains(t *testing.T, expected, actual map[string]*terrafo
 
 		// Shallow copy the actual/expected attribute for comparison, so that expectations don't
 		// have to match the full heirarchy within.
-		expectedCopy := shallowCopyAttribute(t, expectedAtt)
-		actualCopy := shallowCopyAttribute(t, actualAtt)
+		expectedCopy := shallowCopyAttributeS(t, expectedAtt)
+		actualCopy := shallowCopyAttributeS(t, actualAtt)
 
 		require.EqualValuesf(t, expectedCopy, actualCopy, "expected %#v attribute, got %#v", expectedCopy, actualCopy)
 
@@ -81,10 +81,10 @@ func setupTerraformCommand(t *testing.T, providerDir, config, commandName string
 
 	require.NoError(t,
 		os.WriteFile(path.Join(tfDir, "test.tfrc"), []byte(fmt.Sprintf(`provider_installation {
-dev_overrides {
-	"brandonc/tfpgenexample" = "%s"
-}
-direct {}
+	dev_overrides {
+		"brandonc/tfpgenexample" = "%s"
+	}
+	direct {}
 }`, providerDir)), 0700))
 
 	require.NoError(t,
@@ -149,22 +149,22 @@ func TestGenerate(t *testing.T) {
 
 	t.Run("test provider schema output", func(t *testing.T) {
 		cmd := setupTerraformCommand(t, tempDir, `terraform {
-required_providers {
-	tfpgenexample = {
-		source = "brandonc/tfpgenexample"
+	required_providers {
+		tfpgenexample = {
+			source = "brandonc/tfpgenexample"
+		}
 	}
-}
 }
 
 resource "tfpgenexample_quota" "example" {
-create_index = 0
+	create_index = 0
 
-description = "my quota"
+	description = "my quota"
 
-limits = [{
-	hash = "myhash1"
-	region = "myregion1"
-}]
+	limits = [{
+		hash = "myhash1"
+		region = "myregion1"
+	}]
 }`, "terraform", "providers", "schema", "-json")
 
 		output, err := cmd.CombinedOutput()
@@ -180,7 +180,7 @@ limits = [{
 		quotaSchema, ok := tfpgenSchema.ResourceSchemas["tfpgenexample_quota"]
 		require.True(t, ok)
 
-		// Incomplete, but multiple nesting levels
+		// Incomplete attributes, but multiple nesting levels
 		expectedAttr := map[string]*terraformJson.SchemaAttribute{
 			"create_index": {
 				AttributeType:   cty.Number,

@@ -107,15 +107,19 @@ func toTerraformType(specType string) string {
 	panic(fmt.Sprintf("invalid spec type \"%s\"", specType))
 }
 
-func toGoType(specType string) string {
+func toGoType(dataName, specType, elemType string) string {
 	if specType == "integer" {
 		return "int"
 	} else if specType == "string" {
 		return "string"
 	} else if specType == "boolean" {
 		return "bool"
+	} else if specType == "array" {
+		return "[]" + toGoType(dataName, elemType, "")
+	} else if specType == "object" {
+		return dataName + "Data"
 	}
-	return "interface{}" // TODO: custom nested data types
+	panic("invalid open API spec type " + specType)
 }
 
 func (g *ResourceGenerator) Template() string {
@@ -138,10 +142,20 @@ func New{{ .TerraformTypeName }}() resource.Resource {
 	return &{{ .ResourceStruct }}{}
 }
 
+{{ define "DataStruct" }}struct {
+	{{- range $attribute := .Attributes }}
+		{{ if .IsComplex }}{{ .DataName }} {{ template "DataStruct" . }}{{ else }}
+			{{ .DataName }} {{ .FrameworkDataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" + `
+		{{ end }}
+	{{- end}}
+} ` + "`tfsdk:\"{{ .TfName }}\"`" + `{{ end }}
+
 type {{ .ResourceStruct }}Data struct {
 	{{- range $attribute := .Attributes }}
-	{{ .DataName }} {{ .FrameworkDataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" +
-		`	{{- end}}
+		{{ if .IsComplex }}{{ .DataName }} {{ template "DataStruct" . }}{{ else }}
+			{{ .DataName }} {{ .FrameworkDataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" + `
+		{{ end }}
+	{{- end}}
 }
 
 func (r *{{ .ResourceStruct }}) Metadata(_ context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -176,7 +190,7 @@ func (r *{{ .ResourceStruct }}) Metadata(_ context.Context, req resource.Metadat
 			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
 		}),
 	},{{ end }}
-{{ define "Attr" }}{{ if .IsComplex }}{{ if .IsList }}{{ template "ComplexListAttr" . }}{{ else }}{{ template "ComplexAttr" . }}{{ end}}{{ else }}{{ template "SimpleAttr" . }}{{ end }}{{ end }}
+{{ define "Attr" }}{{ if .IsComplex }}{{ if .IsList }}{{ template "ComplexListAttr" . }}{{ else }}{{ template "ComplexAttr" . }}{{ end }}{{ else }}{{ template "SimpleAttr" . }}{{ end }}{{ end }}
 func (t *{{ .ResourceStruct }}) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
 	return tfsdk.Schema{
 		MarkdownDescription: "TODO",

@@ -24,19 +24,19 @@ func templateAttribute(nestingLevel int, att *restutils.Attribute) *TemplateReso
 			}
 			result.IsComplex = true
 			result.Attributes = nested
-
-			if att.Type == "array" {
-				result.IsList = true
-			}
 		} else if att.Type == "array" {
 			// Simple array type
 			result.FrameworkElemSchemaType = toTerraformFrameworkSchemaType(toTerraformType(att.ElemType))
+		}
+
+		if att.Type == "array" {
+			result.IsList = true
 		}
 	}
 
 	result.Sensitive = att.Format == "password"
 	result.FrameworkSchemaType = toTerraformFrameworkSchemaType(toTerraformType(att.Type))
-	result.FrameworkDataType = toGoType(att.Type)
+	result.FrameworkDataType = toGoType(result.DataName, att.Type, att.ElemType)
 
 	return &result
 }

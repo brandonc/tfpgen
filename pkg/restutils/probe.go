@@ -135,6 +135,9 @@ func (s *RESTResource) Paths() []string {
 
 	length := 0
 	for _, action := range actions {
+		if action == nil {
+			continue
+		}
 		set[action.Path] = nil
 		length++
 	}
