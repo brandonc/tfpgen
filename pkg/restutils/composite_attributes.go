@@ -11,10 +11,6 @@ import (
 // CompositeAttributes are combined parameter, request, and response attributes for
 // a particular RESTResource definition.
 
-// The reason why you would want to compose these attributes together is when
-// Trying to prioritize and redefine them, such as when you're generating a
-// terraform resource 🙃
-
 func isPrimitive(s *openapi3.Schema) bool {
 	return s.Type == "string" || s.Type == "integer" || s.Type == "number" || s.Type == "boolean"
 }
@@ -170,7 +166,7 @@ func update(attMap map[string]*Attribute, action RESTPseudonym, name string, rea
 		log.Printf("[DEBUG] Found param %s (%s) for %s", name, schema.Type, action)
 		var attSub map[string]*Attribute = nil
 
-		elemType := ""
+		var elemType *OASType = nil
 		if isObject(schema) && len(schema.Properties) > 0 {
 			log.Printf("[DEBUG] Extracting sub-parameters for object %s", name)
 			attSub = make(map[string]*Attribute)
@@ -178,9 +174,11 @@ func update(attMap map[string]*Attribute, action RESTPseudonym, name string, rea
 			log.Printf("[DEBUG] ...Found %d for %s", len(attSub), name)
 		} else if isArray(schema) {
 			if isSimpleArray(schema) {
-				elemType = schema.Items.Value.Type
+				e := OASTypeFromString(schema.Items.Value.Type)
+				elemType = &e
 			} else {
-				elemType = "object"
+				e := TypeObject
+				elemType = &e
 
 				log.Printf("[DEBUG] Extracting sub-parameters for object array %s", name)
 				attSub = make(map[string]*Attribute, 0)
@@ -192,9 +190,9 @@ func update(attMap map[string]*Attribute, action RESTPseudonym, name string, rea
 		attMap[name] = &Attribute{
 			Name:        name,
 			ReadOnly:    readonly,
-			Type:        schema.Type,
+			Type:        OASTypeFromString(schema.Type),
 			ElemType:    elemType,
-			Format:      schema.Format,
+			Format:      OASFormatFromString(schema.Format),
 			Description: schema.Description,
 			Required:    required,
 			Attributes:  attributeValues(attSub),
@@ -208,16 +206,16 @@ func update(attMap map[string]*Attribute, action RESTPseudonym, name string, rea
 			setReadonlyAll(existing, false)
 		}
 
-		if existing.Type != schema.Type {
+		if string(existing.Type) != schema.Type {
 			log.Printf(
 				"[WARN] Expected property %s type %s%s to be %s%s",
-				name, schema.Type, formatForLog(schema.Format), existing.Type, formatForLog(existing.Format),
+				name, schema.Type, formatForLog(schema.Format), existing.Type, formatForLog(string(existing.Format)),
 			)
 		}
 	}
 }
 
-// setReadonlyAll recursively sets the readsonly property to true,
+// setReadonlyAll recursively sets the readonly property to true,
 // indicating that the property and its subattributes are only ever
 // read from the API, and not set by clients.
 func setReadonlyAll(att *Attribute, value bool) {

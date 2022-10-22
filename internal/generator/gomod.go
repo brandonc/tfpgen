@@ -21,7 +21,7 @@ var _ Generator = (*ModuleGenerator)(nil)
 func (g *ModuleGenerator) Template() string {
 	return `module {{ .Repository }}
 
-go 1.18
+go 1.19
 `
 }
 

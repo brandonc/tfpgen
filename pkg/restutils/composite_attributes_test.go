@@ -105,7 +105,7 @@ func Test_compositeAttributes(t *testing.T) {
 					t.Errorf("attribute %s ReadOnly expected %v, actual %v", attr, c.ReadOnly, found.ReadOnly)
 				}
 
-				if found.Type != c.Type {
+				if found.Type != OASTypeFromString(c.Type) {
 					t.Errorf("attribute %s Type expected %s, actual %s", attr, c.Type, found.Type)
 				}
 
@@ -189,7 +189,7 @@ func Test_compositeAttributes(t *testing.T) {
 					t.Errorf("attribute %s ReadOnly expected %v, actual %v", attr, c.ReadOnly, found.ReadOnly)
 				}
 
-				if found.Type != c.Type {
+				if found.Type != OASTypeFromString(c.Type) {
 					t.Errorf("attribute %s Type expected %s, actual %s", attr, c.Type, found.Type)
 				}
 
@@ -217,7 +217,7 @@ func Test_compositeAttributes(t *testing.T) {
 				}
 
 				if attr == "Limits" {
-					if found.ElemType != "object" {
+					if *found.ElemType != TypeObject {
 						t.Errorf("Attribute %s ElemType expected object, actual %s", attr, found.ElemType)
 					}
 
@@ -247,7 +247,7 @@ func Test_compositeAttributes(t *testing.T) {
 							t.Errorf("Attribute %s ReadOnly expected %v, actual %v", innerAttr, c.ReadOnly, foundLimit.ReadOnly)
 						}
 
-						if foundLimit.Type != c.Type {
+						if foundLimit.Type != OASTypeFromString(c.Type) {
 							t.Errorf("Attribute %s Type expected %s, actual %s", innerAttr, c.Type, foundLimit.Type)
 						}
 
@@ -309,7 +309,7 @@ func Test_compositeAttributes(t *testing.T) {
 									t.Errorf("Attribute %s ReadOnly expected %v, actual %v", innerAttr, c.ReadOnly, foundRegion.ReadOnly)
 								}
 
-								if foundRegion.Type != c.Type {
+								if foundRegion.Type != OASTypeFromString(c.Type) {
 									t.Errorf("Attribute %s Type expected %s, actual %s", innerAttr, c.Type, foundRegion.Type)
 								}
 
@@ -394,12 +394,12 @@ func Test_compositeAttributes(t *testing.T) {
 													return
 												}
 
-												if foundDNS.Type != c.Type {
+												if foundDNS.Type != OASTypeFromString(c.Type) {
 													t.Errorf("Attribute %s Type expected %s, actual %s", innerDNSAttr, c.Type, foundDNS.Type)
 												}
 
 												// All three DNS attributes are string arrays
-												if foundDNS.ElemType != "string" {
+												if *foundDNS.ElemType != TypeString {
 													t.Errorf("Attribute %s Type expected %s, actual %s", innerDNSAttr, "string", foundDNS.ElemType)
 												}
 											}

@@ -33,7 +33,7 @@ const (
 	Delete RESTPseudonym = "delete"
 )
 
-var successfulResponseCodes map[RESTPseudonym][]int = map[RESTPseudonym][]int{
+var successfulResponseCodes = map[RESTPseudonym][]int{
 	Create: {201, 200},
 	Show:   {200, 203},
 	Index:  {200, 203},
@@ -41,7 +41,7 @@ var successfulResponseCodes map[RESTPseudonym][]int = map[RESTPseudonym][]int{
 	Delete: {200, 204},
 }
 
-var wellKnownContentTypes map[string]interface{} = map[string]interface{}{
+var wellKnownContentTypes = map[string]interface{}{
 	"application/json": nil,
 }
 
@@ -71,6 +71,92 @@ type RESTResource struct {
 	probe *RESTProbe
 }
 
+type OASType string
+const (
+	TypeInteger OASType = "integer"
+	TypeNumber OASType = "number"
+	TypeString OASType = "string"
+	TypeBoolean OASType = "boolean"
+	TypeObject OASType = "object"
+	TypeArray OASType = "array"
+)
+
+type OASFormat string
+const (
+	FormatNone OASFormat = ""
+	FormatInt32 OASFormat = "int32"
+	FormatInt64 OASFormat = "int64"
+	FormatFloat OASFormat = "float"
+	FormatDouble OASFormat = "double"
+	FormatByte OASFormat = "byte"
+	FormatBinary OASFormat = "binary"
+	FormatDate OASFormat = "date"
+	FormatDateTime OASFormat = "date-time"
+	FormatPassword OASFormat = "password"
+)
+
+func OASFormatFromString(f string) OASFormat {
+	switch f {
+	case string(FormatNone):
+		return FormatNone
+	case string(FormatInt32):
+		return FormatInt32
+	case string(FormatInt64):
+		return FormatInt64
+	case string(FormatFloat):
+		return FormatFloat
+	case string(FormatDouble):
+		return FormatDouble
+	case string(FormatByte):
+		return FormatByte
+	case string(FormatBinary):
+		return FormatBinary
+	case string(FormatDate):
+		return FormatDate
+	case string(FormatDateTime):
+		return FormatDateTime
+	case string(FormatPassword):
+		return FormatPassword
+	default:
+		panic("Invalid OpenAPI Schema Format "+f)
+	}
+}
+
+func OASTypeFromString(t string) OASType {
+	switch t {
+	case string(TypeInteger):
+		return TypeInteger
+	case string(TypeNumber):
+		return TypeNumber
+	case string(TypeString):
+		return TypeString
+	case string(TypeBoolean):
+		return TypeBoolean
+	case string(TypeObject):
+		return TypeObject
+	case string(TypeArray):
+		return TypeArray
+	default:
+		panic("Invalid OpenAPI Schema Type \""+t+"\"")
+	}
+}
+
+func (t OASType) IsArrayOrObject() bool {
+	return t == TypeArray || t == TypeObject
+}
+
+func (t OASType) IsArrayOfObjects(elemType OASType) bool {
+	return t == TypeArray && elemType == TypeObject
+}
+
+func (t OASType) String() string {
+	return string(t)
+}
+
+func (t OASFormat) String() string {
+	return string(t)
+}
+
 // Attribute is a summary of OpenAPI schema or properties that are
 // helpful when translating to another definition.
 type Attribute struct {
@@ -79,14 +165,14 @@ type Attribute struct {
 
 	// Type is the [OpenAPI data type](https://swagger.io/specification/#data-types).
 	// The possible values are integer, number, string, boolean, object, array
-	Type string
+	Type OASType
 
 	// ElemType is the OpenAPI data type of the array elements, which
 	// is only set if the Type is array
-	ElemType string
+	ElemType *OASType
 
 	// Format is the OpenAPI [data type format](https://swagger.io/specification/#data-type-format)
-	Format string
+	Format OASFormat
 
 	// ReadOnly indicates whether this attribute is set by create/update attributes
 	// or if it is computed by the API.
