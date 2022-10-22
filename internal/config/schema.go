@@ -10,15 +10,19 @@ import (
 )
 
 type TfType string
-type ApiScheme string
+type SecurityScheme string
 
 const (
+	// TfTypeResource describes a terraform resource
 	TfTypeResource   TfType = "resource"
+
+	// TfTypeDataSource describes a terraform data source
 	TfTypeDataSource TfType = "data_source"
 )
 
 const (
-	TokenApiScheme ApiScheme = "bearer_token"
+	// TokenSecurityScheme describes a bearer token security scheme
+	TokenSecurityScheme SecurityScheme = "bearer_token"
 )
 
 // ActionBinding is the config section that describes an openAPI path/verb binding
@@ -47,8 +51,8 @@ type TerraformResource struct {
 // ProviderConfig is the container for api client configuration. The provider will generate an
 // API client to use with provider.
 type ApiConfig struct {
-	Scheme          ApiScheme `yaml:"scheme"`
-	DefaultEndpoint string    `yaml:"default_endpoint"`
+	Scheme          SecurityScheme `yaml:"scheme"`
+	DefaultEndpoint string    	   `yaml:"default_endpoint"`
 }
 
 // ProviderConfig is the container for provider configuration.
@@ -98,7 +102,7 @@ func ensureBinding(key string, action restutils.RESTPseudonym, ba *ActionBinding
 	return nil
 }
 
-func (p *ProviderConfig) ProviderOrganization() string {
+func (p *ProviderConfig) ProviderNamespace() string {
 	parts := strings.Split(p.Name, "/")
 	if len(parts) != 2 {
 		panic("invalid provider name")

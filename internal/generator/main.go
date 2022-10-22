@@ -63,7 +63,7 @@ func (g *MainGenerator) PackageName() string {
 func (g *MainGenerator) CreateTemplateData() interface{} {
 	return &MainGeneratorTemplateData{
 		Registry:          g.Config.Provider.Registry,
-		ProviderNamespace: g.Config.Provider.ProviderOrganization(),
+		ProviderNamespace: g.Config.Provider.ProviderNamespace(),
 		ProviderName:      g.Config.Provider.ProviderName(),
 		ModuleRepository:  g.Config.Provider.ModuleRepository,
 	}
