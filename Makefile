@@ -1,5 +1,5 @@
 tfpgen:
-	go build -o tfpgen
+	go build -o tfpgen ./cmd
 
 clean:
 	rm -rf generated
