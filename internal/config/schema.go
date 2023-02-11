@@ -14,7 +14,7 @@ type SecurityScheme string
 
 const (
 	// TfTypeResource describes a terraform resource
-	TfTypeResource   TfType = "resource"
+	TfTypeResource TfType = "resource"
 
 	// TfTypeDataSource describes a terraform data source
 	TfTypeDataSource TfType = "data_source"
@@ -52,7 +52,7 @@ type TerraformResource struct {
 // API client to use with provider.
 type ApiConfig struct {
 	Scheme          SecurityScheme `yaml:"scheme"`
-	DefaultEndpoint string    	   `yaml:"default_endpoint"`
+	DefaultEndpoint string         `yaml:"default_endpoint"`
 }
 
 // ProviderConfig is the container for provider configuration.

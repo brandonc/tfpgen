@@ -72,25 +72,27 @@ type RESTResource struct {
 }
 
 type OASType string
+
 const (
 	TypeInteger OASType = "integer"
-	TypeNumber OASType = "number"
-	TypeString OASType = "string"
+	TypeNumber  OASType = "number"
+	TypeString  OASType = "string"
 	TypeBoolean OASType = "boolean"
-	TypeObject OASType = "object"
-	TypeArray OASType = "array"
+	TypeObject  OASType = "object"
+	TypeArray   OASType = "array"
 )
 
 type OASFormat string
+
 const (
-	FormatNone OASFormat = ""
-	FormatInt32 OASFormat = "int32"
-	FormatInt64 OASFormat = "int64"
-	FormatFloat OASFormat = "float"
-	FormatDouble OASFormat = "double"
-	FormatByte OASFormat = "byte"
-	FormatBinary OASFormat = "binary"
-	FormatDate OASFormat = "date"
+	FormatNone     OASFormat = ""
+	FormatInt32    OASFormat = "int32"
+	FormatInt64    OASFormat = "int64"
+	FormatFloat    OASFormat = "float"
+	FormatDouble   OASFormat = "double"
+	FormatByte     OASFormat = "byte"
+	FormatBinary   OASFormat = "binary"
+	FormatDate     OASFormat = "date"
 	FormatDateTime OASFormat = "date-time"
 	FormatPassword OASFormat = "password"
 )
@@ -118,7 +120,7 @@ func OASFormatFromString(f string) OASFormat {
 	case string(FormatPassword):
 		return FormatPassword
 	default:
-		panic("Invalid OpenAPI Schema Format "+f)
+		panic("Invalid OpenAPI Schema Format " + f)
 	}
 }
 
@@ -137,7 +139,7 @@ func OASTypeFromString(t string) OASType {
 	case string(TypeArray):
 		return TypeArray
 	default:
-		panic("Invalid OpenAPI Schema Type \""+t+"\"")
+		panic("Invalid OpenAPI Schema Type \"" + t + "\"")
 	}
 }
 

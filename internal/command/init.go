@@ -10,7 +10,8 @@ import (
 type InitCommand struct{}
 
 func (c InitCommand) Help() string {
-	return "Usage: init [path]\nGiven an openapi 3 specification, generate tfpgen.yml, which allows you to configure the provider and each resource & data source."
+	return `Usage: init [path]
+Given an openapi 3 specification, generate tfpgen.yml, which allows you to configure the provider and each resource & data source.`
 }
 
 func (c InitCommand) Run(args []string) int {

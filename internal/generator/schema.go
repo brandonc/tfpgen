@@ -58,16 +58,16 @@ type TemplateResourceAttribute struct {
 
 func typeOfSimple(t restutils.OASType, f restutils.OASFormat) TemplateFrameworkType {
 	return TemplateFrameworkType{
-		DataType: toSimpleGoType(t, f),
+		DataType:            toSimpleGoType(t, f),
 		FrameworkSchemaType: toSimpleSchemaType(t, f),
 	}
 }
 
 func listOf(format restutils.OASFormat, elemType restutils.OASType) TemplateFrameworkType {
 	return TemplateFrameworkType{
-		FrameworkSchemaType: "ListType",
+		FrameworkSchemaType:     "ListType",
 		ElemFrameworkSchemaType: toSimpleSchemaType(elemType, restutils.FormatNone),
-		DataType: "[]"+toSimpleGoType(elemType, format),
+		DataType:                "[]" + toSimpleGoType(elemType, format),
 	}
 }
 
