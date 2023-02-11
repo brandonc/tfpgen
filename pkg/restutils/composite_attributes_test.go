@@ -349,7 +349,7 @@ func Test_compositeAttributes(t *testing.T) {
 										t.Errorf("Expected %d Networks attributes but found %d: %v", len(expectedNetworkAttributes), len(foundRegion.Attributes), foundRegion.Attributes)
 									}
 
-									for innerNetworkAttr, _ := range expectedNetworkAttributes {
+									for innerNetworkAttr := range expectedNetworkAttributes {
 										var foundNetwork *Attribute = nil
 										for _, search := range foundRegion.Attributes {
 											if search.Name == innerNetworkAttr {
