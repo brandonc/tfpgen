@@ -30,10 +30,9 @@ import (
 	"context"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/provider"
+	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 )
 
@@ -52,21 +51,19 @@ func (p *Provider) Metadata(ctx context.Context, req provider.MetadataRequest, r
 	resp.Version = p.Version
 }
 
-func (p *Provider) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
-		Attributes: map[string]tfsdk.Attribute{
-			"endpoint": {
+func (p *Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp *provider.SchemaResponse) {
+	resp.Schema = schema.Schema{
+		Attributes: map[string]schema.Attribute{
+			"endpoint": schema.StringAttribute{
 				MarkdownDescription: "The HTTP API endpoint for the provider",
 				Optional:            true,
-				Type:                types.StringType,
 			},
-			"api_token": {
+			"api_token": schema.StringAttribute{
 				MarkdownDescription: "The HTTP API token, sent as Authorization: Bearer header",
 				Optional:            true,
-				Type:                types.StringType,
 			},
 		},
-	}, nil
+	}
 }
 
 func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest, resp *provider.ConfigureResponse) {
@@ -78,8 +75,8 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 		return
 	}
 
-	if data.Endpoint.Null {
-		data.Endpoint.Value = "{{ .DefaultEndpoint }}"
+	if data.Endpoint.IsNull() {
+		data.Endpoint = types.StringValue("{{ .DefaultEndpoint }}")
 	}
 
 	// If the upstream provider SDK or HTTP client requires configuration, such

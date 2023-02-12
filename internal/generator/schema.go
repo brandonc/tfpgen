@@ -6,14 +6,48 @@ import (
 	"github.com/brandonc/tfpgen/pkg/restutils"
 )
 
-// TemplateFrameworkType describes the data type of an attribute
-type TemplateFrameworkType struct {
-	// The Terraform Plugin Framework schema type from the types package, for example, "StringType"
-	// Note this field is not required when attributes contain other attributes.
-	FrameworkSchemaType string
+type FrameworkAttributeSchemaString string
+type FrameworkTypeString string
 
-	// If the type is a list or map, this is the type of the inner element
-	ElemFrameworkSchemaType string
+// These constants refer to variables in package github.com/hashicorp/terraform-plugin-framework/resource/schema
+const (
+	SchemaBool         FrameworkAttributeSchemaString = "BoolAttribute"
+	SchemaFloat64      FrameworkAttributeSchemaString = "Float64Attribute"
+	SchemaInt64        FrameworkAttributeSchemaString = "Int64Attribute"
+	SchemaList         FrameworkAttributeSchemaString = "ListAttribute"
+	SchemaMap          FrameworkAttributeSchemaString = "MapAttribute"
+	SchemaNumber       FrameworkAttributeSchemaString = "NumberAttribute"
+	SchemaObject       FrameworkAttributeSchemaString = "ObjectAttribute"
+	SchemaSet          FrameworkAttributeSchemaString = "SetAttribute"
+	SchemaString       FrameworkAttributeSchemaString = "StringAttribute"
+	SchemaListNested   FrameworkAttributeSchemaString = "ListNestedAttribute"
+	SchemaMapNested    FrameworkAttributeSchemaString = "MapNestedAttribute"
+	SchemaSetNested    FrameworkAttributeSchemaString = "SetNestedAttribute"
+	SchemaSingleNested FrameworkAttributeSchemaString = "SingleNestedAttribute"
+)
+
+// These constants refer to variables in package github.com/hashicorp/terraform-plugin-framework/types
+const (
+	// TypeBool is a string reference to types.BoolType
+	TypeBool FrameworkTypeString = "BoolType"
+	// TypeFloat64 is a string reference to types.Float64Type
+	TypeFloat64 FrameworkTypeString = "Float64Type"
+	// TypeInt64 is a string reference to types.Int64Type
+	TypeInt64 FrameworkTypeString = "Int64Type"
+	// TypeNumber is a string reference to types.NumberType
+	TypeNumber FrameworkTypeString = "NumberType"
+	// TypeString is a string reference to types.StringType
+	TypeString FrameworkTypeString = "StringType"
+)
+
+// TemplateFrameworkType describes the data type of an attribute
+type TemplateResourceAttributeSchema struct {
+	// The Terraform Plugin Framework schema attribute from the resource schema package, for example, "StringAttribute"
+	// Note this field is not required when attributes contain other attributes.
+	FrameworkSchemaAttributeType FrameworkAttributeSchemaString
+
+	// If the attribute is a list or map, this is the type of the inner element
+	ElementType FrameworkTypeString
 
 	// The Terraform Plugin Framework attribute go data type, for example, "string"
 	DataType string
@@ -35,7 +69,7 @@ type TemplateResourceAttribute struct {
 	DataName string
 
 	// Attribute type information
-	Type TemplateFrameworkType
+	Schema TemplateResourceAttributeSchema
 
 	// Whether or not to mark this attribute as sensitive
 	Sensitive bool
@@ -56,29 +90,42 @@ type TemplateResourceAttribute struct {
 	IsComplex bool
 }
 
-func typeOfSimple(t restutils.OASType, f restutils.OASFormat) TemplateFrameworkType {
-	return TemplateFrameworkType{
-		DataType:            toSimpleGoType(t, f),
-		FrameworkSchemaType: toSimpleSchemaType(t, f),
+func typeOfSimple(t restutils.OASType, f restutils.OASFormat) TemplateResourceAttributeSchema {
+	return TemplateResourceAttributeSchema{
+		DataType:                     toSimpleGoType(t, f),
+		FrameworkSchemaAttributeType: toSimpleFrameworkSchemaType(t, f),
 	}
 }
 
-func listOf(format restutils.OASFormat, elemType restutils.OASType) TemplateFrameworkType {
-	return TemplateFrameworkType{
-		FrameworkSchemaType:     "ListType",
-		ElemFrameworkSchemaType: toSimpleSchemaType(elemType, restutils.FormatNone),
-		DataType:                "[]" + toSimpleGoType(elemType, format),
+func listOf(format restutils.OASFormat, elemType restutils.OASType) TemplateResourceAttributeSchema {
+	return TemplateResourceAttributeSchema{
+		FrameworkSchemaAttributeType: SchemaList,
+		ElementType:                  toSimpleFrameworkType(elemType, restutils.FormatNone),
+		DataType:                     "[]" + toSimpleGoType(elemType, format),
 	}
 }
 
-func toSimpleSchemaType(t restutils.OASType, f restutils.OASFormat) string {
+func toSimpleFrameworkType(t restutils.OASType, f restutils.OASFormat) FrameworkTypeString {
 	switch t {
 	case restutils.TypeString:
-		return "StringType"
+		return TypeString
 	case restutils.TypeNumber, restutils.TypeInteger:
-		return "NumberType"
+		return TypeNumber
 	case restutils.TypeBoolean:
-		return "BoolType"
+		return TypeBool
+	default:
+		panic("not a simple schema type " + t.String())
+	}
+}
+
+func toSimpleFrameworkSchemaType(t restutils.OASType, f restutils.OASFormat) FrameworkAttributeSchemaString {
+	switch t {
+	case restutils.TypeString:
+		return SchemaString
+	case restutils.TypeNumber, restutils.TypeInteger:
+		return SchemaNumber
+	case restutils.TypeBoolean:
+		return SchemaBool
 	default:
 		panic("not a simple schema type " + t.String())
 	}
@@ -102,7 +149,7 @@ func toSimpleGoType(t restutils.OASType, f restutils.OASFormat) string {
 	case restutils.TypeBoolean:
 		return "bool"
 	default:
-		panic("not a simple schmea type " + t.String())
+		panic("not a simple schema type " + t.String())
 	}
 }
 
@@ -120,21 +167,21 @@ func templateAttribute(nestingLevel int, att *restutils.Attribute) *TemplateReso
 		if att.Type == restutils.TypeObject || att.Type.IsArrayOfObjects(*att.ElemType) {
 			// Complex array type
 			nested := make([]*TemplateResourceAttribute, 0, len(att.Attributes))
-			for _, subatt := range att.Attributes {
-				nested = append(nested, templateAttribute(nestingLevel+1, subatt))
+			for _, subAtt := range att.Attributes {
+				nested = append(nested, templateAttribute(nestingLevel+1, subAtt))
 			}
 			result.IsComplex = true
 			result.Attributes = nested
 		} else if att.Type == "array" {
 			// Simple array type
-			result.Type = listOf(att.Format, *att.ElemType)
+			result.Schema = listOf(att.Format, *att.ElemType)
 		}
 
 		if att.Type == "array" {
 			result.IsList = true
 		}
 	} else {
-		result.Type = typeOfSimple(att.Type, att.Format)
+		result.Schema = typeOfSimple(att.Type, att.Format)
 	}
 
 	result.Sensitive = att.Format == "password"

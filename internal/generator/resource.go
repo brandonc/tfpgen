@@ -41,9 +41,8 @@ package {{ .PackageName }}
 import (
 	"context"
 
-	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
-	"github.com/hashicorp/terraform-plugin-framework/tfsdk"
+	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-log/tflog"
 )
@@ -57,7 +56,7 @@ func New{{ .TerraformTypeName }}() resource.Resource {
 {{ define "DataStruct" }}struct {
 	{{- range $attribute := .Attributes }}
 		{{ if .IsComplex }}{{ .DataName }} {{ template "DataStruct" . }}{{ else }}
-			{{ .DataName }} {{ .Type.DataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" + `
+			{{ .DataName }} {{ .Schema.DataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" + `
 		{{ end }}
 	{{- end}}
 } ` + "`tfsdk:\"{{ .TfName }}\"`" + `{{ end }}
@@ -65,7 +64,7 @@ func New{{ .TerraformTypeName }}() resource.Resource {
 type {{ .ResourceStruct }}Data struct {
 	{{- range $attribute := .Attributes }}
 		{{ if .IsComplex }}{{ .DataName }} {{ template "DataStruct" . }}{{ else }}
-			{{ .DataName }} {{ .Type.DataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" + `
+			{{ .DataName }} {{ .Schema.DataType }} ` + "`tfsdk:\"{{ .TfName }}\"`" + `
 		{{ end }}
 	{{- end}}
 }
@@ -75,41 +74,43 @@ func (r *{{ .ResourceStruct }}) Metadata(_ context.Context, req resource.Metadat
 }
 
 {{ define "SimpleAttr" }}
-	"{{.TfName}}": {
+	"{{.TfName}}": schema.{{.Schema.FrameworkSchemaAttributeType}}{
 		MarkdownDescription: "{{ .Description }}",
-		Type:                types.{{ .Type.FrameworkSchemaType }}{{ if .Type.ElemFrameworkSchemaType }}{ ElemType: types.{{ .Type.ElemFrameworkSchemaType }}}{{ end }},
+		{{ if .Schema.ElementType }}ElementType: types.{{ .Schema.ElementType }},{{ end }}
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
 		Sensitive:           {{ .Sensitive }},
 	},{{ end }}
 {{ define "ComplexListAttr" }}
-	"{{.TfName}}": {
+	"{{.TfName}}": schema.ListNestedAttribute{
 		MarkdownDescription: "{{ .Description }}",
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
 		Sensitive:           {{ .Sensitive }},
-		Attributes:          tfsdk.ListNestedAttributes(map[string]tfsdk.Attribute{
-			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
-		}),
+		NestedObject:        schema.NestedAttributeObject{
+			Attributes:        map[string]schema.Attribute{
+				{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
+			},
+		},
 	},{{ end }}
 {{ define "ComplexAttr" }}
-	"{{.TfName}}": {
+	"{{.TfName}}": schema.SingleNestedAttribute{
 		MarkdownDescription: "{{ .Description }}",
 		Required:            {{ .Required }},
 		Optional:            {{ .Optional }},
 		Sensitive:           {{ .Sensitive }},
-		Attributes:          tfsdk.SingleNestedAttributes(map[string]tfsdk.Attribute{
+		Attributes:        map[string]schema.Attribute{
 			{{- range $attr := .Attributes }}{{ template "Attr" $attr }}{{- end}}
-		}),
+		},
 	},{{ end }}
 {{ define "Attr" }}{{ if .IsComplex }}{{ if .IsList }}{{ template "ComplexListAttr" . }}{{ else }}{{ template "ComplexAttr" . }}{{ end }}{{ else }}{{ template "SimpleAttr" . }}{{ end }}{{ end }}
-func (t *{{ .ResourceStruct }}) GetSchema(ctx context.Context) (tfsdk.Schema, diag.Diagnostics) {
-	return tfsdk.Schema{
+func (t *{{ .ResourceStruct }}) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+	resp.Schema = schema.Schema{
 		MarkdownDescription: "TODO",
-		Attributes: map[string]tfsdk.Attribute{
+		Attributes: map[string]schema.Attribute{
 			{{- range $attribute := .Attributes }}{{ template "Attr" $attribute }}{{- end}}
 		},
-	}, nil
+	}
 }
 
 func (r *{{ .ResourceStruct }}) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {

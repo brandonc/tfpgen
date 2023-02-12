@@ -41,6 +41,7 @@ var (
 func main() {
 	opts := providerserver.ServeOpts{
 		Address: "{{ .Registry }}/{{ .ProviderNamespace }}/{{ .ProviderName }}",
+		ProtocolVersion: 6,
 	}
 
 	err := providerserver.Serve(context.Background(), provider.New(version), opts)

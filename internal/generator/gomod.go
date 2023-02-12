@@ -22,6 +22,11 @@ func (g *ModuleGenerator) Template() string {
 	return `module {{ .Repository }}
 
 go 1.19
+
+require (
+	github.com/hashicorp/terraform-plugin-framework v1.1.1
+	github.com/hashicorp/terraform-plugin-log v0.8.0
+)
 `
 }
 
